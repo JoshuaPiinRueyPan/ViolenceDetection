@@ -1,0 +1,14 @@
+# ignore binary
+*.pyc
+
+# ignore editor temp file
+*.swp
+*.py\~
+
+# ignore settings
+# settings/*.py  # This should be uncommented when the project is mature
+
+# ignore data
+*.jpg
+data/*
+temp/*
