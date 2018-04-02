@@ -3,8 +3,8 @@ import settings.DataSettings as dataSettings
 import cv2
 import numpy as np
 
-#targetDataManager = 'train'
-targetDataManager = 'eval'
+targetDataManager = 'train'
+#targetDataManager = 'eval'
 
 def DrawInfo(targetImage_, listOfInfoToDisplay):
 	xLeft = 0
@@ -34,7 +34,46 @@ def convertNetInputToCV_Format(netInputImage_):
 	return cvImage
 
 def Check_TrainDataManager():
-	pass
+	print("Start reading videos...")
+	dataSettings.PATH_TO_TRAIN_SET_LIST = 'src/data/unit_test/videos.txt'
+	dataManager = TrainDataManager()
+	print("Read videos finished.")
+
+	while True:
+		'''
+		    The following Info should be extracted before calling 'GetBatchOfData()'
+		'''
+		listOfBatchInfo = []
+		listOfBatchInfo.append('dataManager.epoch='+str(dataManager.epoch))
+		listOfBatchInfo.append('dataManager.step='+str(dataManager.step))
+
+		currentBatchOfImages, currentBatchLabels = dataManager.GetBatchOfData()
+		i = 0
+		while i < currentBatchOfImages.shape[0]:
+			currentImage = currentBatchOfImages[i]
+			currentImage = convertNetInputToCV_Format(currentImage)
+			currentLabel = currentBatchLabels[i]
+
+			listOfInfoToDisplay = []
+			listOfInfoToDisplay += listOfBatchInfo
+			listOfInfoToDisplay.append('i = '+str(i))
+			listOfInfoToDisplay.append('batchImages.shape = ' + str(currentBatchOfImages.shape))
+			listOfInfoToDisplay.append('label = '+str(currentLabel))
+			resultImage = DrawInfo(currentImage, listOfInfoToDisplay)
+
+			cv2.imshow("Result", resultImage)
+
+			userResponse = cv2.waitKey(0)
+			if userResponse == ord('n'):
+				i += 1
+
+			elif userResponse == ord('l'):
+				i = currentBatchOfImages.shape[0] - 1
+
+			elif userResponse == ord('q'):
+				raise StopIteration()
+
+
 
 def Check_EvalDataManager():
 	print("Start reading videos...")

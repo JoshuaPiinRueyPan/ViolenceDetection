@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 import settings.DataSettings as dataSettings
 from src.data.VideoData import VideoData
 import numpy as np
+import random
 
 class DataManagerBase:
 	__metaclass__ = ABCMeta
@@ -64,7 +65,7 @@ class DataManagerBase:
 
 class TrainDataManager(DataManagerBase):
 	def __init__(self):
-		super(DataManagerBase, self).__init__(dataSettings.PATH_TO_TRAIN_SET_LIST)
+		super().__init__(dataSettings.PATH_TO_TRAIN_SET_LIST)
 		self._isNewEpoch = True
 		self._dataCursor = 0
 		self.epoch = 0
@@ -86,7 +87,7 @@ class TrainDataManager(DataManagerBase):
 			outputIndex += 1
 			self._dataCursor += 1
 			if self._dataCursor >= len(self._listOfData):
-				shuffle(self._listOfData)
+				random.shuffle(self._listOfData)
 				self._dataCursor = 0
 				self.epoch += 1
 				self.isNewEpoch = True
