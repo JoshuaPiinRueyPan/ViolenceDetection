@@ -1,6 +1,6 @@
-PATH_TO_TRAIN_SET_LIST = './train.txt'
-PATH_TO_VAL_SET_LIST = './val.txt'
-PATH_TO_TEST_SET_LIST = './test.txt'
+PATH_TO_TRAIN_SET_CATELOG = 'data/train.txt'
+PATH_TO_VAL_SET_CATELOG = 'data/val.txt'
+PATH_TO_TEST_SET_CATELOG = 'data/test.txt'
 
 '''
     The input will be (BATCH_SIZE*UNROLLED_SIZE, IMAGE_SIZE, IMAGE_SIZE, 3)

@@ -1,0 +1,5 @@
+data/Bermejo/hockey/noFights/no301_xvid.avi	INF	INF
+data/Bermejo/hockey/fights/fi114_xvid.avi	0.0	INF
+data/Bermejo/hockey/fights/fi402_xvid.avi	0.0	INF
+data/Bermejo/hockey/noFights/no353_xvid.avi	INF	INF
+data/Bermejo/hockey/fights/fi261_xvid.avi	0.0	INF

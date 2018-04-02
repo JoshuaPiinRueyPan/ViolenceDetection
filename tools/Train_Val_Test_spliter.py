@@ -30,11 +30,13 @@ def PrintHelp():
 import os
 
 def AccumulateAllVideoFromDifferentDir(LIST_OF_DIR_THAT_CONTAINS_VIDEOS_):
-	listOfVideos = []
+	listOfPathToVideos = []
 	for eachDir in LIST_OF_DIR_THAT_CONTAINS_VIDEOS_:
-		listOfVideos += os.listdir(eachDir)
+		listOfVideos = os.listdir(eachDir)
+		for eachVideo in listOfVideos:
+			listOfPathToVideos.append(eachDir+eachVideo)
 
-	return listOfVideos
+	return listOfPathToVideos
 
 def AppendLabelToEachData(LIST_OF_DATA_, isFighting_):
 	listOfDataWithLabel = []

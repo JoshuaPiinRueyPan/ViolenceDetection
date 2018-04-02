@@ -1,72 +1,61 @@
 import random
 from abc import ABCMeta, abstractmethod
-import cv2
 import settings.DataSettings as dataSettings
+from src.data.VideoData import VideoData
+import numpy as np
 
-class DataManagerBase(object):
+class DataManagerBase:
 	__metaclass__ = ABCMeta
-	def __init__(self, LIST_OF_DATA_INFO_):
+	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
 		self._listOfData = []
-		self._loadAllVideosMemory(LIST_OF_DATA_INFO_)
+		self._loadAllVideosMemory(PATH_TO_DATA_SET_CATELOG_)
 
-	def _loadAllVideosMemory(self, LIST_OF_DATA_INFO_):
+	def _loadAllVideosMemory(self, PATH_TO_DATA_SET_CATELOG_):
 		'''
 		    The data are expected in the following format:
 		'''
-		for eachDataInfo in LIST_OF_DATA_INFO_:
-			pathToVideo, fightStartFrame, fightEndFrame = eachDataPath.split('\t')
-			currentVideoReader = cv2.VideoCapture(pathToVideo)
+		with open(PATH_TO_DATA_SET_CATELOG_, 'r') as fileContext:
+			for eachLine in fileContext:
+				pathToVideo, fightStartFrame, fightEndFrame = eachLine.split('\t')
+				currentVideo = VideoData(pathToVideo)
+				currentVideo.SetLabel(fightStartFrame, fightEndFrame)
 
-			if currentVideoReader.isOpened():
-				currentLabel = (fightStartFrame, fightEndFrame)
-				self._listOfData.append( (currentVideoReader, currentLabel) )
-			
-			else:
-				print("Unable to open: " + videoPathName)
-
-	
-	def _assignDataFromSingleVideo(self, video_, currentLabel_,
-					 frameStartIndex_, NUMBER_OF_FRAMES_TO_CONCAT,
-					 arrayToAssignImages_, arrayToAssignLabels_):
-		'''
-		    Note for cv2.VideoCapture:
-			1. cv2.VideoCapture.frame start from 1
-			2. When calling video.set(..., 5), to change the frame position to 5,
-			   it will not return image unless the next time you call 'video.read()'.
-			3. If one call 'video.set(..., 5)' then call 'video.read()', you will
-			   actually get the 6th frame.
-			4. The 'totalFrames' from 'video.get(cv2.CAP_PROP_FRAME_COUNT)'
-			   is accessible.
-		'''
-		video_.set(cv2.CAP_PROP_POS_FRAMES, frameStartIndex_)
-		fightStartFrame, fightEndFrame = currentLabel_
-
-		isCurrentFrameValid, bgrImage = videoReader.read()
-
-		if not isCurrentFrameValid:
-			raise ValueError("Can't read Video, do you remove video at run time?")
-
-		rgbImage = cv2.cvtColor(bgrImage, cv2.BGR2RBG);
-		rgbImage /= 255.
-
-		for arrayIndex in range(NUMBER_OF_FRAMES_TO_CONCAT):
-			if isCurrentFrameValid:
-				arrayToAssignImages_[arrayIndex] = rgbImage
-				currentFramePosition = frameStartIndex_ + 1 + arrayIndex
-				if (currentFramePosition >= fightStartFrame)and(currentFramePosition <= fightEndFrame):
-					arrayToAssignLabels_[arrayIndex] = np.array([0., 1.])
+				if currentVideo.isValid and currentVideo.hasLabel:
+					self._listOfData.append( currentVideo )
+				
 				else:
-					arrayToAssignLabels_[arrayIndex] = np.array([1., 0.])
+					print("Unable to open: " + pathToVideo)
 
-			else:
-				'''
-				    For the case that UNROLLED_SIZE > video.TOTAL_FRAMES,
-				    use the last frame always.
-				'''
-				arrayToAssignImages_[arrayIndex] = arrayToAssignImages_[arrayIndex-1]
-				arrayToAssignLabels_[arrayIndex] = arrayToAssignLabels_[arrayIndex-1]
 
-			isCurrentFrameValid, currentImage = videoReader.read()
+	def _getDataFromSingleVideo(self, video_, startFrameIndex_, NUMBER_OF_FRAMES_TO_CONCAT_):
+		endFrameIndex = startFrameIndex_ + NUMBER_OF_FRAMES_TO_CONCAT_
+		if endFrameIndex < video_.totalFrames:
+			arrayOfImages = video_.images[startFrameIndex_ : endFrameIndex]
+			arrayOfLabels = video_.labels[startFrameIndex_ : endFrameIndex]
+			return arrayOfImages, arrayOfLabels
+
+		else:
+			'''
+			    For the case that UNROLLED_SIZE > video.TOTAL_FRAMES,
+			    use the last frame always.
+			'''
+			listOfImages = []
+			listOfLabels = []
+			
+			listOfImages.append(video_.images[startFrameIndex_:])
+			listOfLabels.append(video_.labels[startFrameIndex_:])
+
+			numberOfArtificialFrames = endFrameIndex - video_.totalFrames
+
+			while len(listOfImages) < numberOfArtificialFrames:
+				listOfImages.append( [ video_.images[-1] ] )
+				listOfLabels.append( [ video_.labels[-1] ] )
+
+			arrayOfImages = np.concatenate( listOfImages, axis=0 )
+			arrayOfLabels = np.concatenate( listOfLabels, axis=0 )
+
+			return arrayOfImages, arrayOfLabels
+
 
 	@abstractmethod
 	def GetBatchOfData(self):
@@ -83,18 +72,17 @@ class TrainDataManager(DataManagerBase):
 
 	def GetBatchOfData(self):
 		self._isNewEpoch = False
-		arrayOfImages = np.zeros(dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE,
-					 dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3)
-		arrayOfLabels = np.zeros(dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE, 2)
+		listOfBatchImages = []
+		listOfBatchLabels = []
 
 		outputIndex = 0
 		while outputIndex < dataSettings.BATCH_SIZE:
-			currentVideo, currentLabel = self._listOfData[self._dataCursor]
-			totalFrames = currentVideo.get(cv2.CAP_PROP_FRAME_COUNT)
-			frameStartIndex = random.randint(0, max(0, totalFrames - dataSettings.UNROLLED_SIZE) )
-			_assignDataFromSingleVideo(currentVideo, currentLabel,
-						   frameStartIndex, dataSettings.UNROLLED_SIZE,
-						   arrayOfImages[outputIndex], arrayOfLabels[outputIndex])
+			currentVideo = self._listOfData[self._dataCursor]
+			frameStartIndex = random.randint(0, max(0, currentVideo.totalFrames - dataSettings.UNROLLED_SIZE) )
+			arrayOfImages, arrayOfLabels = self._getDataFromSingleVideo(currentVideo,
+										    frameStartIndex, dataSettings.UNROLLED_SIZE)
+			listOfBatchImages.append(arrayOfImages)
+			listOfBatchLabels.append(arrayOfLabels)
 			outputIndex += 1
 			self._dataCursor += 1
 			if self._dataCursor >= len(self._listOfData):
@@ -104,9 +92,9 @@ class TrainDataManager(DataManagerBase):
 				self.isNewEpoch = True
 		self.step += 1
 
-		arrayOfImages = arrayOfImages.reshape([-1, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3])
-		arrayOfLabels = arrayOfLabels.reshape([-1, 2])
-		return arrayOfImages, arrayOfLabels
+		arrayOfBatchImages = np.concatenate(listOfBatchImages, axis=0)
+		arrayOfBatchLabels = np.concatenate(listOfBatchLabels, axis=0)
+		return arrayOfBatchImages, arrayOfBatchLabels
 
 
 class EvaluationDataManager(DataManagerBase):
@@ -127,8 +115,8 @@ class EvaluationDataManager(DataManagerBase):
 				if valDataSet.isNewVideo:
 					net.ResetCellState()
 	'''
-	def __init__(self, PATH_TO_DATA_SET_LIST_):
-		super(DataManagerBase, self).__init__(PATH_TO_DATA_SET_LIST_)
+	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
+		super().__init__(PATH_TO_DATA_SET_CATELOG_)
 		self.isAllDataTraversed = False
 		self.isNewVideo = True
 		self._videoCursor = 0
@@ -137,24 +125,17 @@ class EvaluationDataManager(DataManagerBase):
 	def GetBatchOfData(self):
 		self.isAllDataTraversed = False
 		self.isNewVideo = False
-		currentVideo, currentLabel = self._listOfData[self._videoCursor]
-		totalFrames = currentVideo.get(cv2.CAP_PROP_FRAME_COUNT)
-
-		if totalFrames < 1:
-			raise ValueError("Video has no frame, please check...")
+		currentVideo = self._listOfData[self._videoCursor]
 
 		unrolledSize = min(dataSettings.BATCH_SIZE * dataSettings.UNROLLED_SIZE,
-				   totalFrames - self._frameCursor)
+				   currentVideo.totalFrames - self._frameCursor)
 
-		arrayOfImages = np.zeros(unrolledSize, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3)
-		arrayOfLabels = np.zeros(unrolledSize, 2)
-
-		_assignDataFromSingleVideo(currentVideo, currentLabel,
-					   self._frameCursor, unrolledSize,
-					   arrayOfImages, arrayOfLabels)
+		arrayOfImages, arrayOfLabels = self._getDataFromSingleVideo(currentVideo,
+									    self._frameCursor, unrolledSize)
 
 		self._frameCursor += unrolledSize
-		if self._frameCursor >= totalFrames:
+		if self._frameCursor >= currentVideo.totalFrames:
+			self._frameCursor = 0
 			self._videoCursor +=1
 			self.isNewVideo = True
 			if self._videoCursor >= len(self._listOfData):
