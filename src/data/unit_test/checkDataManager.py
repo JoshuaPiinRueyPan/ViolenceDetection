@@ -4,8 +4,8 @@ import cv2
 import numpy as np
 import time
 
-#targetDataManager = 'train'
-targetDataManager = 'eval'
+targetDataManager = 'train'
+#targetDataManager = 'eval'
 
 def DrawInfo(targetImage_, listOfInfoToDisplay):
 	xLeft = 0

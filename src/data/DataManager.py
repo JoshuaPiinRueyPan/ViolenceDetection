@@ -75,9 +75,9 @@ class DataManagerBase:
 
 	def _getDataFromSingleVideo(self, video_, startFrameIndex_, NUMBER_OF_FRAMES_TO_CONCAT_):
 		endFrameIndex = startFrameIndex_ + NUMBER_OF_FRAMES_TO_CONCAT_
-		if endFrameIndex < video_.totalFrames:
-			arrayOfImages = video_.images[startFrameIndex_ : endFrameIndex+1]
-			arrayOfLabels = video_.labels[startFrameIndex_ : endFrameIndex+1]
+		if endFrameIndex <= video_.totalFrames:
+			arrayOfImages = video_.images[startFrameIndex_ : endFrameIndex]
+			arrayOfLabels = video_.labels[startFrameIndex_ : endFrameIndex]
 			return arrayOfImages, arrayOfLabels
 
 		else:
@@ -85,20 +85,20 @@ class DataManagerBase:
 			    For the case that UNROLLED_SIZE > video.TOTAL_FRAMES,
 			    use the last frame always.
 			'''
-			listOfImages = []
-			listOfLabels = []
+			print("video.totalFrames=", video_.totalFrames, "; while UNROLL = ", NUMBER_OF_FRAMES_TO_CONCAT_)
+			arrayOfImages = np.zeros( [NUMBER_OF_FRAMES_TO_CONCAT_,
+						   dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3] )
+			arrayOfLabels = np.zeros( [NUMBER_OF_FRAMES_TO_CONCAT_, 2] )
 			
-			listOfImages.append(video_.images[startFrameIndex_:])
-			listOfLabels.append(video_.labels[startFrameIndex_:])
+			arrayOfImages[ : video_.totalFrames] = video_.images[startFrameIndex_:]
+			arrayOfLabels[ : video_.totalFrames] = video_.labels[startFrameIndex_:]
 
 			numberOfArtificialFrames = endFrameIndex - video_.totalFrames
+			arrayOfLastFrameImages = np.tile( video_.images[-1], [numberOfArtificialFrames, 1, 1, 1] )
+			arrayOfLastFrameLabels = np.tile( video_.labels[-1], [numberOfArtificialFrames, 1] )
 
-			while len(listOfImages) <= numberOfArtificialFrames:
-				listOfImages.append( [ video_.images[-1] ] )
-				listOfLabels.append( [ video_.labels[-1] ] )
-
-			arrayOfImages = np.concatenate( listOfImages, axis=0 )
-			arrayOfLabels = np.concatenate( listOfLabels, axis=0 )
+			arrayOfImages[video_.totalFrames : ] = arrayOfLastFrameImages
+			arrayOfLabels[video_.totalFrames : ] = arrayOfLastFrameLabels
 
 			return arrayOfImages, arrayOfLabels
 
@@ -171,8 +171,9 @@ class TrainDataManager(DataManagerBase):
 
 	def GetBatchOfData(self):
 		self._isNewEpoch = False
-		listOfBatchImages = []
-		listOfBatchLabels = []
+		arrayOfBatchImages = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE,
+					        dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3] )
+		arrayOfBatchLabels = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE, 2] )
 
 		listOfLoadedVideos = self._popVideoDataFromLoadedQueue(dataSettings.BATCH_SIZE)
 		outputIndex = 0
@@ -183,8 +184,8 @@ class TrainDataManager(DataManagerBase):
 										    frameStartIndex, dataSettings.UNROLLED_SIZE)
 			# Release the video frames
 			currentVideo.ReleaseImages()
-			listOfBatchImages.append(arrayOfImages)
-			listOfBatchLabels.append(arrayOfLabels)
+			arrayOfBatchImages[outputIndex] = arrayOfImages
+			arrayOfBatchLabels[outputIndex] = arrayOfLabels
 			outputIndex += 1
 			self._dataCursor += 1
 			if self._dataCursor >= self.TOTAL_DATA:
@@ -194,11 +195,11 @@ class TrainDataManager(DataManagerBase):
 				self.isNewEpoch = True
 		self.step += 1
 
-		arrayOfBatchImages = np.concatenate(listOfBatchImages, axis=0)
-		arrayOfBatchLabels = np.concatenate(listOfBatchLabels, axis=0)
-
 		self._pushVideoDataToWaitingQueue(dataSettings.BATCH_SIZE)
 		self._appendVideoDataBackToDataList(listOfLoadedVideos)
+
+		arrayOfBatchImages = arrayOfBatchImages.reshape( [-1, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3] )
+		arrayOfBatchLabels = arrayOfBatchLabels.reshape( [-1, 2] )
 
 		return arrayOfBatchImages, arrayOfBatchLabels
 
