@@ -48,22 +48,23 @@ def Check_TrainDataManager():
 		listOfBatchInfo.append('dataManager.epoch='+str(dataManager.epoch))
 		listOfBatchInfo.append('dataManager.step='+str(dataManager.step))
 
+		batchData = BatchData()
 		startGetBatchTime = time.time()
-		currentBatchOfImages, currentBatchLabels = dataManager.GetBatchOfData()
+		dataManager.GetBatchOfData(batchData)
 		finishGetBatchTime = time.time()
 		info = dataManager.GetQueueInfo()
 		print("\t GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
 		print("\t\t" + info + "\n")
 		i = 0
-		while i < currentBatchOfImages.shape[0]:
-			currentImage = currentBatchOfImages[i]
+		while i < batchData.batchOfImages.shape[0]:
+			currentImage = batchData.batchOfImages[i]
 			currentImage = convertNetInputToCV_Format(currentImage)
-			currentLabel = currentBatchLabels[i]
+			currentLabel = batchData.batchOfLabels[i]
 
 			listOfInfoToDisplay = []
 			listOfInfoToDisplay += listOfBatchInfo
 			listOfInfoToDisplay.append('i = '+str(i))
-			listOfInfoToDisplay.append('batchImages.shape = ' + str(currentBatchOfImages.shape))
+			listOfInfoToDisplay.append('batchImages.shape = ' + str(batchData.batchOfImages.shape))
 			listOfInfoToDisplay.append('label = '+str(currentLabel))
 			resultImage = DrawInfo(currentImage, listOfInfoToDisplay)
 
@@ -74,7 +75,7 @@ def Check_TrainDataManager():
 				i += 1
 
 			elif userResponse == ord('l'):
-				i = currentBatchOfImages.shape[0] - 1
+				i = batchData.batchOfImages.shape[0] - 1
 
 			elif userResponse == ord('q'):
 				dataManager.Stop()
@@ -95,25 +96,30 @@ def Check_EvalDataManager():
 		listOfBatchInfo.append('dataManager.isAllDataTraversed='+str(dataManager.isAllDataTraversed))
 		listOfBatchInfo.append('dataManager.isNewVideo='+str(dataManager.isNewVideo))
 
+		batchData = BatchData()
 		startGetBatchTime = time.time()
-		currentBatchOfImages, currentBatchLabels = dataManager.GetBatchOfData()
+		dataManager.GetBatchOfData(batchData)
 		finishGetBatchTime = time.time()
+
+		startViewTime = time.time()
 		info = dataManager.GetQueueInfo()
-		print("\t GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
-		print("\t\t" + info + "\n")
+		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
+		print("\t" + info + "\n")
 		i = 0
-		while i < currentBatchOfImages.shape[0]:
-			currentImage = currentBatchOfImages[i]
+		while i < batchData.batchOfImages.shape[0]:
+			currentImage = batchData.batchOfImages[i]
 			currentImage = convertNetInputToCV_Format(currentImage)
-			currentLabel = currentBatchLabels[i]
+			currentLabel = batchData.batchOfLabels[i]
 
 			listOfInfoToDisplay = []
 			listOfInfoToDisplay += listOfBatchInfo
 			listOfInfoToDisplay.append('i = '+str(i))
-			listOfInfoToDisplay.append('batchImages.shape = ' + str(currentBatchOfImages.shape))
+			listOfInfoToDisplay.append('batchImages.shape = ' + str(batchData.batchOfImages.shape))
 			listOfInfoToDisplay.append('label = '+str(currentLabel))
 			resultImage = DrawInfo(currentImage, listOfInfoToDisplay)
 
+			endViewTime = time.time()
+			print("before view duration: ", endViewTime - startViewTime)
 			cv2.imshow("Result", resultImage)
 
 			userResponse = cv2.waitKey(0)
@@ -121,7 +127,7 @@ def Check_EvalDataManager():
 				i += 1
 
 			elif userResponse == ord('l'):
-				i = currentBatchOfImages.shape[0] - 1
+				i = batchData.batchOfImages.shape[0] - 1
 
 			elif userResponse == ord('q'):
 				dataManager.Stop()

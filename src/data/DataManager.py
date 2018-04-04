@@ -11,6 +11,12 @@ if six.PY2:
 else:
 	from queue import *
 
+class BatchData:
+	def __init__(self):
+		self.numberOfUnrolls = 0
+		self.batchOfImages = None
+		self.batchOfLabels = None
+
 class DataManagerBase:
 	__metaclass__ = ABCMeta
 	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
@@ -169,7 +175,11 @@ class TrainDataManager(DataManagerBase):
 		self.epoch = 0
 		self.step = 0
 
-	def GetBatchOfData(self):
+	def GetBatchOfData(self, batchData_):
+		'''
+		    The user should pass BatchData as argument to this function,
+		    since this would be faster then this function return two numpy.array.
+		'''
 		self._isNewEpoch = False
 		arrayOfBatchImages = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE,
 					        dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3] )
@@ -198,10 +208,9 @@ class TrainDataManager(DataManagerBase):
 		self._pushVideoDataToWaitingQueue(dataSettings.BATCH_SIZE)
 		self._appendVideoDataBackToDataList(listOfLoadedVideos)
 
-		arrayOfBatchImages = arrayOfBatchImages.reshape( [-1, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3] )
-		arrayOfBatchLabels = arrayOfBatchLabels.reshape( [-1, 2] )
-
-		return arrayOfBatchImages, arrayOfBatchLabels
+		batchData_.numberOfUnrolls = dataSettings.UNROLLED_SIZE
+		batchData_.batchOfImages = arrayOfBatchImages.reshape( [-1, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3] )
+		batchData_.batchOfLabels = arrayOfBatchLabels.reshape( [-1, 2] )
 
 
 class EvaluationDataManager(DataManagerBase):
@@ -231,32 +240,53 @@ class EvaluationDataManager(DataManagerBase):
 		self._currentVideo = None
 		self._frameCursor = 0
 
-	def GetBatchOfData(self):
+	def GetBatchOfData(self, batchData_):
+		'''
+		    The user should pass BatchData as argument to this function,
+		    since this would be faster then this function return two numpy.array.
+		'''
 		self.isAllDataTraversed = False
 		self.isNewVideo = False
 		if self._currentVideo == None:
+			startTime = time.time()
 			self._currentVideo = self._popVideoDataFromLoadedQueue(1)[0]
+			endTime = time.time()
+			print("\t\t _popVideoDataFromLoadedQueue(): duration = ", endTime - startTime)
 
 		unrolledSize = min(dataSettings.BATCH_SIZE * dataSettings.UNROLLED_SIZE,
 				   self._currentVideo.totalFrames - self._frameCursor)
 
-		arrayOfImages, arrayOfLabels = self._getDataFromSingleVideo(self._currentVideo,
-									    self._frameCursor, unrolledSize)
+		batchData_.numberOfUnrolls = unrolledSize
+		startGetDataTime = time.time()
+		batchData_.batchOfImages, batchData_.batchOfLabels = self._getDataFromSingleVideo(self._currentVideo,
+												  self._frameCursor, unrolledSize)
+		endGetDataTime = time.time()
+		print("\t\t _getDataFromSingleVideo(): duration = ", endGetDataTime - startGetDataTime)
 
 		self._frameCursor += unrolledSize
+
 		if self._frameCursor >= self._currentVideo.totalFrames:
 			self._frameCursor = 0
 			self._dataCursor += 1
 			self.isNewVideo = True
 
+			startTime = time.time()
 			self._pushVideoDataToWaitingQueue(1)
+			endTime = time.time()
+			print("\t\t _pushVideoDataToWaitingQueue(): duration = ", endTime - startTime)
+
+			startTime = time.time()
 			self._appendVideoDataBackToDataList( [self._currentVideo] )
+			endTime = time.time()
+			print("\t\t _appendVideoDataBackToDataList(): duration = ", endTime - startTime)
+
+			startTime = time.time()
 			self._currentVideo.ReleaseImages()
+			endTime = time.time()
+			print("\t\t _currentVideo.ReleaseImages(), duration = ", endTime - startTime)
 			self._currentVideo = None
 		
 			if self._dataCursor >= self.TOTAL_DATA:
 				self._dataCursor = 0
 				self.isAllDataTraversed = True
-
-		return arrayOfImages, arrayOfLabels
 
