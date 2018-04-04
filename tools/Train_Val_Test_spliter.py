@@ -4,7 +4,7 @@
 	--------------------------------------------------------------
 	PathFileNameOfFile <Tab> FightStartFrame <Tab> FightEndFrame
 	ex:
-		data/video/video_1	0.0	INF
+		data/video/video_1	0	INF
 		data/video/video_2	INF	INF
 	--------------------------------------------------------------
 '''
@@ -42,7 +42,7 @@ def AppendLabelToEachData(LIST_OF_DATA_, isFighting_):
 	listOfDataWithLabel = []
 	for eachData in LIST_OF_DATA_:
 		if isFighting_:
-			eachData += "\t0.0\tINF"
+			eachData += "\t0\tINF"
 
 		else:
 			eachData += "\tINF\tINF"

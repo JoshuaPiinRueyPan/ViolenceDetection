@@ -2,9 +2,10 @@ from src.data.DataManager import *
 import settings.DataSettings as dataSettings
 import cv2
 import numpy as np
+import time
 
-targetDataManager = 'train'
-#targetDataManager = 'eval'
+#targetDataManager = 'train'
+targetDataManager = 'eval'
 
 def DrawInfo(targetImage_, listOfInfoToDisplay):
 	xLeft = 0
@@ -47,7 +48,12 @@ def Check_TrainDataManager():
 		listOfBatchInfo.append('dataManager.epoch='+str(dataManager.epoch))
 		listOfBatchInfo.append('dataManager.step='+str(dataManager.step))
 
+		startGetBatchTime = time.time()
 		currentBatchOfImages, currentBatchLabels = dataManager.GetBatchOfData()
+		finishGetBatchTime = time.time()
+		info = dataManager.GetQueueInfo()
+		print("\t GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
+		print("\t\t" + info + "\n")
 		i = 0
 		while i < currentBatchOfImages.shape[0]:
 			currentImage = currentBatchOfImages[i]
@@ -71,6 +77,7 @@ def Check_TrainDataManager():
 				i = currentBatchOfImages.shape[0] - 1
 
 			elif userResponse == ord('q'):
+				dataManager.Stop()
 				raise StopIteration()
 
 
@@ -88,7 +95,12 @@ def Check_EvalDataManager():
 		listOfBatchInfo.append('dataManager.isAllDataTraversed='+str(dataManager.isAllDataTraversed))
 		listOfBatchInfo.append('dataManager.isNewVideo='+str(dataManager.isNewVideo))
 
+		startGetBatchTime = time.time()
 		currentBatchOfImages, currentBatchLabels = dataManager.GetBatchOfData()
+		finishGetBatchTime = time.time()
+		info = dataManager.GetQueueInfo()
+		print("\t GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
+		print("\t\t" + info + "\n")
 		i = 0
 		while i < currentBatchOfImages.shape[0]:
 			currentImage = currentBatchOfImages[i]
@@ -112,6 +124,7 @@ def Check_EvalDataManager():
 				i = currentBatchOfImages.shape[0] - 1
 
 			elif userResponse == ord('q'):
+				dataManager.Stop()
 				raise StopIteration()
 
 

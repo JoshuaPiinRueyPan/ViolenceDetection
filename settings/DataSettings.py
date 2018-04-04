@@ -8,6 +8,11 @@ PATH_TO_TEST_SET_CATELOG = 'data/test.txt'
     'NUMBER_OF_UNROLLS':  How many Frames should be extracted from a video.
 '''
 #BATCH_SIZE = 12
-BATCH_SIZE = 5
-UNROLLED_SIZE = 2
+BATCH_SIZE = 3
+UNROLLED_SIZE = 40
 IMAGE_SIZE = 448
+
+#####################
+# Advenced Settings #
+#####################
+DATA_QUEUE_MAX_SIZE = 50
