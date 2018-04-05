@@ -4,8 +4,9 @@ import cv2
 import numpy as np
 import time
 
-targetDataManager = 'train'
-#targetDataManager = 'eval'
+PATH_TO_DATA = 'src/data/unit_test/videos.txt'
+#targetDataManager = 'train'
+targetDataManager = 'eval'
 
 def DrawInfo(targetImage_, listOfInfoToDisplay):
 	xLeft = 0
@@ -36,7 +37,7 @@ def convertNetInputToCV_Format(netInputImage_):
 
 def Check_TrainDataManager():
 	print("Start reading videos...")
-	dataSettings.PATH_TO_TRAIN_SET_LIST = 'src/data/unit_test/videos.txt'
+	dataSettings.PATH_TO_TRAIN_SET_LIST = PATH_TO_DATA
 	dataManager = TrainDataManager()
 	print("Read videos finished.")
 
@@ -51,11 +52,12 @@ def Check_TrainDataManager():
 		batchData = BatchData()
 		startGetBatchTime = time.time()
 		dataManager.GetBatchOfData(batchData)
+		#batchData = dataManager.GetBatchOfData()
 		finishGetBatchTime = time.time()
-		print("\t GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
+		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
 
 		info = dataManager.GetQueueInfo()
-		print("\t\t" + info + "\n")
+		print("\t" + info + "\n")
 		i = 0
 		while i < batchData.batchOfImages.shape[0]:
 			currentImage = batchData.batchOfImages[i]
@@ -86,7 +88,7 @@ def Check_TrainDataManager():
 
 def Check_EvalDataManager():
 	print("Start reading videos...")
-	dataManager = EvaluationDataManager('src/data/unit_test/videos.txt')
+	dataManager = EvaluationDataManager(PATH_TO_DATA)
 	print("Read videos finished.")
 
 	while True:
