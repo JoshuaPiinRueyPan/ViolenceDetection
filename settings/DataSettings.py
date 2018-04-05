@@ -15,4 +15,4 @@ IMAGE_SIZE = 448
 #####################
 # Advenced Settings #
 #####################
-DATA_QUEUE_MAX_SIZE = 50
+DATA_QUEUE_MAX_SIZE = 30

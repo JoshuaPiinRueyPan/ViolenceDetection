@@ -181,21 +181,34 @@ class TrainDataManager(DataManagerBase):
 		    since this would be faster then this function return two numpy.array.
 		'''
 		self._isNewEpoch = False
+
 		arrayOfBatchImages = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE,
 					        dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3] )
 		arrayOfBatchLabels = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE, 2] )
 
 		listOfLoadedVideos = self._popVideoDataFromLoadedQueue(dataSettings.BATCH_SIZE)
+
+		startLoopTime = time.time()
 		outputIndex = 0
 		while outputIndex < dataSettings.BATCH_SIZE:
 			currentVideo = listOfLoadedVideos[outputIndex]
 			frameStartIndex = random.randint(0, max(0, currentVideo.totalFrames - dataSettings.UNROLLED_SIZE) )
+
+			startGetImagesTime = time.time()
 			arrayOfImages, arrayOfLabels = self._getDataFromSingleVideo(currentVideo,
 										    frameStartIndex, dataSettings.UNROLLED_SIZE)
+			endGetImagesTime = time.time()
+			print("\t\t _getDataFromSingleVideo time: ", endGetImagesTime - startGetImagesTime)
+
 			# Release the video frames
 			currentVideo.ReleaseImages()
+
+			startAssignTime = time.time()
 			arrayOfBatchImages[outputIndex] = arrayOfImages
 			arrayOfBatchLabels[outputIndex] = arrayOfLabels
+			endAssignTime = time.time()
+			print("\t\t arrayOfBatchLabels[outputIndex] = currentImages time: ", endAssignTime - startAssignTime)
+
 			outputIndex += 1
 			self._dataCursor += 1
 			if self._dataCursor >= self.TOTAL_DATA:
@@ -203,7 +216,11 @@ class TrainDataManager(DataManagerBase):
 				self._dataCursor = 0
 				self.epoch += 1
 				self.isNewEpoch = True
+
 		self.step += 1
+
+		endLoopTime = time.time()
+		print("\t while loop time: ", endLoopTime - startLoopTime)
 
 		self._pushVideoDataToWaitingQueue(dataSettings.BATCH_SIZE)
 		self._appendVideoDataBackToDataList(listOfLoadedVideos)
@@ -248,21 +265,14 @@ class EvaluationDataManager(DataManagerBase):
 		self.isAllDataTraversed = False
 		self.isNewVideo = False
 		if self._currentVideo == None:
-			startTime = time.time()
 			self._currentVideo = self._popVideoDataFromLoadedQueue(1)[0]
-			endTime = time.time()
-			print("\t\t _popVideoDataFromLoadedQueue(): duration = ", endTime - startTime)
 
 		unrolledSize = min(dataSettings.BATCH_SIZE * dataSettings.UNROLLED_SIZE,
 				   self._currentVideo.totalFrames - self._frameCursor)
 
 		batchData_.numberOfUnrolls = unrolledSize
-		startGetDataTime = time.time()
 		batchData_.batchOfImages, batchData_.batchOfLabels = self._getDataFromSingleVideo(self._currentVideo,
 												  self._frameCursor, unrolledSize)
-		endGetDataTime = time.time()
-		print("\t\t _getDataFromSingleVideo(): duration = ", endGetDataTime - startGetDataTime)
-
 		self._frameCursor += unrolledSize
 
 		if self._frameCursor >= self._currentVideo.totalFrames:
@@ -270,20 +280,10 @@ class EvaluationDataManager(DataManagerBase):
 			self._dataCursor += 1
 			self.isNewVideo = True
 
-			startTime = time.time()
 			self._pushVideoDataToWaitingQueue(1)
-			endTime = time.time()
-			print("\t\t _pushVideoDataToWaitingQueue(): duration = ", endTime - startTime)
-
-			startTime = time.time()
 			self._appendVideoDataBackToDataList( [self._currentVideo] )
-			endTime = time.time()
-			print("\t\t _appendVideoDataBackToDataList(): duration = ", endTime - startTime)
 
-			startTime = time.time()
 			self._currentVideo.ReleaseImages()
-			endTime = time.time()
-			print("\t\t _currentVideo.ReleaseImages(), duration = ", endTime - startTime)
 			self._currentVideo = None
 		
 			if self._dataCursor >= self.TOTAL_DATA:

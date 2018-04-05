@@ -52,8 +52,9 @@ def Check_TrainDataManager():
 		startGetBatchTime = time.time()
 		dataManager.GetBatchOfData(batchData)
 		finishGetBatchTime = time.time()
-		info = dataManager.GetQueueInfo()
 		print("\t GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
+
+		info = dataManager.GetQueueInfo()
 		print("\t\t" + info + "\n")
 		i = 0
 		while i < batchData.batchOfImages.shape[0]:
@@ -96,15 +97,15 @@ def Check_EvalDataManager():
 		listOfBatchInfo.append('dataManager.isAllDataTraversed='+str(dataManager.isAllDataTraversed))
 		listOfBatchInfo.append('dataManager.isNewVideo='+str(dataManager.isNewVideo))
 
+		startCreateTime = time.time()
 		batchData = BatchData()
+		endCreateTime = time.time()
+		print("Create time = ", endCreateTime - startCreateTime)
+
 		startGetBatchTime = time.time()
 		dataManager.GetBatchOfData(batchData)
 		finishGetBatchTime = time.time()
-
-		startViewTime = time.time()
-		info = dataManager.GetQueueInfo()
-		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
-		print("\t" + info + "\n")
+		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime, "\n")
 		i = 0
 		while i < batchData.batchOfImages.shape[0]:
 			currentImage = batchData.batchOfImages[i]
@@ -118,8 +119,6 @@ def Check_EvalDataManager():
 			listOfInfoToDisplay.append('label = '+str(currentLabel))
 			resultImage = DrawInfo(currentImage, listOfInfoToDisplay)
 
-			endViewTime = time.time()
-			print("before view duration: ", endViewTime - startViewTime)
 			cv2.imshow("Result", resultImage)
 
 			userResponse = cv2.waitKey(0)
