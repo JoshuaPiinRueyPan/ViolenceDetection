@@ -4,7 +4,8 @@ import cv2
 import numpy as np
 import time
 
-PATH_TO_DATA = 'src/data/unit_test/videos.txt'
+#PATH_TO_DATA = 'src/data/unit_test/videos.txt'
+PATH_TO_DATA = 'data/train.txt'
 #targetDataManager = 'train'
 targetDataManager = 'eval'
 
@@ -36,6 +37,8 @@ def convertNetInputToCV_Format(netInputImage_):
 	return cvImage
 
 def Check_TrainDataManager():
+	pauseLoadData = False
+
 	print("Start reading videos...")
 	dataSettings.PATH_TO_TRAIN_SET_LIST = PATH_TO_DATA
 	dataManager = TrainDataManager()
@@ -80,6 +83,13 @@ def Check_TrainDataManager():
 			elif userResponse == ord('l'):
 				i = batchData.batchOfImages.shape[0] - 1
 
+			elif userResponse == ord('p'):
+				pauseLoadData = not pauseLoadData
+				if pauseLoadData:
+					dataManager.Pause()
+				else:
+					dataManager.Continue()
+
 			elif userResponse == ord('q'):
 				dataManager.Stop()
 				raise StopIteration()
@@ -87,6 +97,8 @@ def Check_TrainDataManager():
 
 
 def Check_EvalDataManager():
+	pauseLoadData = False
+
 	print("Start reading videos...")
 	dataManager = EvaluationDataManager(PATH_TO_DATA)
 	print("Read videos finished.")
@@ -108,6 +120,9 @@ def Check_EvalDataManager():
 		dataManager.GetBatchOfData(batchData)
 		finishGetBatchTime = time.time()
 		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime, "\n")
+
+		info = dataManager.GetQueueInfo()
+		print("\t" + info + "\n")
 		i = 0
 		while i < batchData.batchOfImages.shape[0]:
 			currentImage = batchData.batchOfImages[i]
@@ -129,6 +144,13 @@ def Check_EvalDataManager():
 
 			elif userResponse == ord('l'):
 				i = batchData.batchOfImages.shape[0] - 1
+
+			elif userResponse == ord('p'):
+				pauseLoadData = not pauseLoadData
+				if pauseLoadData:
+					dataManager.Pause()
+				else:
+					dataManager.Continue()
 
 			elif userResponse == ord('q'):
 				dataManager.Stop()

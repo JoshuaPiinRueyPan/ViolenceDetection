@@ -99,6 +99,6 @@ class VideoData:
 			enlargedImages[i] = imageUtil.ResizeAndPad(rgbImages_[i], (dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE) )
 
 		netInputImages = (enlargedImages/255.0) * 2.0 - 1.0
-		return netInputImages
+		return netInputImages.astype(np.float16)
 	
 

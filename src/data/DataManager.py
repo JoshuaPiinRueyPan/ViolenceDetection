@@ -11,6 +11,17 @@ if six.PY2:
 else:
 	from queue import *
 
+'''
+    When user call DataManager.Stop(), the loading threads
+    may keep runing because of the Blocked Queue.get()
+    or Blocked Queue.put(), thus add the following timeout.
+'''
+TIMEOUT_FOR_WAIT_QUEUE = 10
+'''
+   Number of Data to Produce when One data is Consumed.
+'''
+PRODUCE_CONSUME_RATIO = 5
+
 class BatchData:
 	def __init__(self):
 		self.numberOfUnrolls = 0
@@ -22,7 +33,43 @@ class DataManagerBase:
 	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
 		self._listOfData = []
 		self._initVideoData(PATH_TO_DATA_SET_CATELOG_)
+		self._lockForThreadControl = threading.Lock()
+		self._shouldPause = False
+		self._shouldStop = False
+		self._listOfLoadDataThreads = []
+
+		self._lockForDataList = threading.Lock()
+		self._queueForWaitingVideos = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE*2)
+		self._queueForLoadedVideos = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE)
+
 		self.TOTAL_DATA = len(self._listOfData)
+
+	def __del__(self):
+		self.Stop()
+		for eachThread in self._listOfLoadDataThreads:
+			eachThread.join()
+		print("\t TrainDataManager.thread.join() successfully.")
+
+	def Pause(self):
+		with self._lockForThreadControl:
+			self._shouldPause = True
+
+	def Continue(self):
+		with self._lockForThreadControl:
+			self._shouldPause = False
+
+	def Stop(self):
+		with self._lockForThreadControl:
+			self._shouldStop = True
+
+	def GetQueueInfo(self):
+		info = "listOfData.len() = " + str( len(self._listOfData) ) + ";\t"
+		info += "queueForWaiting.len() = " + str( self._queueForWaitingVideos.qsize() ) + ";\t"
+		info += "queueForLoaded.len() = " + str(self._queueForLoadedVideos.qsize() ) + ";\t"
+		with self._lockForThreadControl:
+			info += "Pause = " + str(self._shouldPause)
+		return info
+
 
 	def _initVideoData(self, PATH_TO_DATA_SET_CATELOG_):
 		'''
@@ -41,6 +88,39 @@ class DataManagerBase:
 		if len(self._listOfData) == 0:
 			raise ValueError("No Valid Data found in: " + PATH_TO_DATA_SET_CATELOG_)
 
+	def _executeLoadDataThreads(self, NUMBER_OF_LOAD_DATA_THREADS_):
+		for i in range(NUMBER_OF_LOAD_DATA_THREADS_):
+			currentThread = threading.Thread(target=self.runLoadingThread)
+			currentThread.start()
+			self._listOfLoadDataThreads.append(currentThread)
+
+	def runLoadingThread(self):
+		shouldPause = False
+		shouldStop = False
+		with self._lockForThreadControl:
+			shouldPause = self._shouldPause
+			shouldStop = self._shouldStop
+
+		while not shouldStop:
+			if shouldPause:
+				time.sleep(0.5)
+
+			else:
+				try:
+					self._loadVideoData()
+
+				except Empty:
+					'''
+					    Catch the Queue.Empty exception thrown
+					    by waiting timeout.
+					'''
+					time.sleep(0.0005)
+
+			# Update shouldStop flag
+			with self._lockForThreadControl:
+				shouldPause = self._shouldPause
+				shouldStop = self._shouldStop
+
 	def _getDataFromSingleVideo(self, video_, startFrameIndex_, NUMBER_OF_FRAMES_TO_CONCAT_):
 		endFrameIndex = startFrameIndex_ + NUMBER_OF_FRAMES_TO_CONCAT_
 		if endFrameIndex <= video_.totalFrames:
@@ -53,10 +133,11 @@ class DataManagerBase:
 			    For the case that UNROLLED_SIZE > video.TOTAL_FRAMES,
 			    use the last frame always.
 			'''
-			print("video.totalFrames=", video_.totalFrames, "; while UNROLL = ", NUMBER_OF_FRAMES_TO_CONCAT_)
 			arrayOfImages = np.zeros( [NUMBER_OF_FRAMES_TO_CONCAT_,
-						   dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3] )
-			arrayOfLabels = np.zeros( [NUMBER_OF_FRAMES_TO_CONCAT_, 2] )
+						   dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3],
+						  dtype=np.float16 )
+			arrayOfLabels = np.zeros( [NUMBER_OF_FRAMES_TO_CONCAT_, 2],
+						  dtype=np.float16 )
 			
 			arrayOfImages[ : video_.totalFrames] = video_.images[startFrameIndex_:]
 			arrayOfLabels[ : video_.totalFrames] = video_.labels[startFrameIndex_:]
@@ -70,78 +151,7 @@ class DataManagerBase:
 
 			return arrayOfImages, arrayOfLabels
 
-	@abstractmethod
-	def GetBatchOfData(self):
-		pass
-
-
-class TrainDataManager(DataManagerBase):
-	def __init__(self):
-		super().__init__(dataSettings.PATH_TO_TRAIN_SET_LIST)
-
-		# Public variables
-		self.epoch = 0
-		self.step = 0
-
-		self._isNewEpoch = True
-		self._dataCursor = 0
-
-		self._lockForDataList = threading.Lock()
-		self._lockForStopThread = threading.Lock()
-		self._shouldStop = False
-		self._queueForWaitingVideos = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE*2)
-		self._queueForLoadedBatchData = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE)
-		self._pushVideoDataToWaitingQueue(dataSettings.DATA_QUEUE_MAX_SIZE)
-
-		self._loadVideoThread = threading.Thread(target=self.runLoadingThread, args=())
-		self._loadVideoThread.start()
-
-	def Stop(self):
-		with self._lockForStopThread:
-			self._shouldStop = True
-
-	def __del__(self):
-		self.Stop()
-		self._loadVideoThread.join()
-		print("\t DataManagerBase.thread.join() successfully.")
-
-
-	def GetBatchOfData(self, batchData_):
-		'''
-		    The user should pass BatchData as argument to this function,
-		    since this would be faster then this function return two numpy.array.
-		'''
-		self._isNewEpoch = False
-
-		startPopQueueTime = time.time()
-		batchData = self._queueForLoadedBatchData.get(block=True)
-		endPopQueueTime = time.time()
-		print("\t Time to pop data from loaded queue: ", endPopQueueTime - startPopQueueTime)
-
-		startAssignTime = time.time()
-		batchData_.numberOfUnrolls = batchData.numberOfUnrolls
-		batchData_.batchOfImages = batchData.batchOfImages
-		batchData_.batchOfLabels = batchData.batchOfLabels
-		endAssignTime = time.time()
-
-		self.step += 1
-		self._dataCursor += dataSettings.BATCH_SIZE
-		if self._dataCursor >= self.TOTAL_DATA:
-			with self._lockForDataList:
-				random.shuffle(self._listOfData)
-			self._dataCursor = 0
-			self.epoch += 1
-			self.isNewEpoch = True
-
-		startPushTime = time.time()
-		self._pushVideoDataToWaitingQueue(dataSettings.BATCH_SIZE)
-		endPushTime = time.time()
-		print("\t Time to push data to waiting queue: ", endPushTime - startPushTime)
-
-		return batchData
-
-
-	def _pushVideoDataToWaitingQueue(self, numberOfData_):
+	def pushVideoDataToWaitingQueue(self, numberOfData_):
 		'''
 		    This function push 'numberOfData_' from the head of 'self._listOfData'
 		    to the queue that wait for loading video images.
@@ -164,46 +174,83 @@ class TrainDataManager(DataManagerBase):
 				'''
 				pass
 
-	def runLoadingThread(self):
-		shouldStop = False
-		with self._lockForStopThread:
-			shouldStop = self._shouldStop
-
-		while not shouldStop:
-			try:
-				self._loadVideoData()
-
-			except Empty:
-				'''
-				    Catch the Queue.Empty exception thrown
-				    by waiting timeout.
-				'''
-				pass
-
-			finally:
-				# Update shouldStop flag
-				with self._lockForStopThread:
-					shouldStop = self._shouldStop
 
 
+	def appendVideoDataBackToDataList(self, listOfVideoData_):
+		'''
+		    After you get the video from 'self._queueForLoadedVideos'
+		    and perform some operation on the videos, you should stuff that
+		    VideoReader back to the 'self._listOfData'.  Otherwise the
+		    VideoReader will getting fewer and fewer.
+		'''
+		with self._lockForDataList:
+			self._listOfData += listOfVideoData_
+
+
+	@abstractmethod
+	def GetBatchOfData(self):
+		pass
+
+	@abstractmethod
 	def _loadVideoData(self):
-		if self._queueForLoadedBatchData.qsize() <= dataSettings.DATA_QUEUE_MAX_SIZE:
+		pass
+
+
+class TrainDataManager(DataManagerBase):
+	def __init__(self, NUMBER_OF_LOAD_DATA_THREADS=4):
+		super().__init__(dataSettings.PATH_TO_TRAIN_SET_LIST)
+
+		# Public variables
+		self.epoch = 0
+		self.step = 0
+
+		self._isNewEpoch = True
+		self._dataCursor = 0
+
+		self.pushVideoDataToWaitingQueue(dataSettings.DATA_QUEUE_MAX_SIZE*2)
+
+		self._executeLoadDataThreads(NUMBER_OF_LOAD_DATA_THREADS)
+
+	def GetBatchOfData(self, batchData_):
+		'''
+		    The user should pass BatchData as argument to this function,
+		    since this would be faster then this function return two numpy.array.
+		'''
+		self._isNewEpoch = False
+
+		batchData = self._queueForLoadedVideos.get(block=True)
+
+		batchData_.numberOfUnrolls = batchData.numberOfUnrolls
+		batchData_.batchOfImages = batchData.batchOfImages
+		batchData_.batchOfLabels = batchData.batchOfLabels
+
+		self.step += 1
+		self._dataCursor += dataSettings.BATCH_SIZE
+		if self._dataCursor >= self.TOTAL_DATA:
+			with self._lockForDataList:
+				random.shuffle(self._listOfData)
+			self._dataCursor = 0
+			self.epoch += 1
+			self.isNewEpoch = True
+
+		self.pushVideoDataToWaitingQueue(dataSettings.BATCH_SIZE * PRODUCE_CONSUME_RATIO)
+
+		return batchData
+
+	
+	def _loadVideoData(self):
+		if self._queueForLoadedVideos.qsize() <= dataSettings.DATA_QUEUE_MAX_SIZE:
 			listOfLoadedVideos = []
 			for i in range(dataSettings.BATCH_SIZE):
-				'''
-				    Following wait for 10 seconds to get VideoReader.
-				    If someone call TrainDataManager.Stop(), and the loading thread is
-				    blocked at the following line, it will not stop at all.
-				    thus add the following timeout.
-				'''
-				videoReader = self._queueForWaitingVideos.get(block=True, timeout=10)
+				videoReader = self._queueForWaitingVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
 				videoReader.LoadVideoImages()
 				listOfLoadedVideos.append(videoReader)
 
-			
 			arrayOfBatchImages = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE,
-							dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3] )
-			arrayOfBatchLabels = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE, 2] )
+							dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3],
+							dtype=np.float16 )
+			arrayOfBatchLabels = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE, 2],
+							dtype=np.float16 )
 
 			for i in range(dataSettings.BATCH_SIZE):
 				currentVideo = listOfLoadedVideos[i]
@@ -225,21 +272,30 @@ class TrainDataManager(DataManagerBase):
 										dataSettings.IMAGE_SIZE, 3] )
 			batchData.batchOfLabels = arrayOfBatchLabels.reshape( [-1, 2] )
 
-			self._queueForLoadedBatchData.put(batchData, block=True)
+			try:
+				self._queueForLoadedVideos.put(batchData, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+				self.appendVideoDataBackToDataList(listOfLoadedVideos)
 
-			with self._lockForDataList:
-				self._listOfData += listOfLoadedVideos
+			except Full:
+				print("\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
+				      ");  put VideoReader back to WaitingQueue")
+				try:
+					while len(listOfLoadedVideos) > 0:
+						eachVideoReader = listOfLoadedVideos.pop(0)
+						self._queueForWaitingVideos.put(eachVideoReader, block=True,
+										timeout=TIMEOUT_FOR_WAIT_QUEUE)
+						print("\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
+						      ")...")
+				except Full:
+					print("\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
+					      "); put VideoReader back to data list")
+					listOfLoadedVideos.insert(0, eachVideoReader)
+					with self._lockForDataList:
+						self._listOfData = listOfLoadedVideos + self._listOfData
 
 		
 		else:
 			time.sleep(0.001)
-
-
-	def GetQueueInfo(self):
-		info = "listOfData.len() = " + str( len(self._listOfData) ) + ";\t"
-		info += "queueForWaiting.len() = " + str( self._queueForWaitingVideos.qsize() ) + ";\t"
-		info += "queueForLoaded.len() = " + str(self._queueForLoadedBatchData.qsize() ) + ";\t"
-		return info
 
 
 
@@ -260,8 +316,11 @@ class EvaluationDataManager(DataManagerBase):
 				valLoss += net.CalculateLoss(valDataSet.GetBatchOfData())
 				if valDataSet.isNewVideo:
 					net.ResetCellState()
+
+				if valDataSet.isAllDataTraversed:
+					valDataSet.Pause()
 	'''
-	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
+	def __init__(self, PATH_TO_DATA_SET_CATELOG_, NUMBER_OF_LOAD_DATA_THREADS=1):
 		super().__init__(PATH_TO_DATA_SET_CATELOG_)
 		self.isAllDataTraversed = False
 		self.isNewVideo = True
@@ -269,25 +328,11 @@ class EvaluationDataManager(DataManagerBase):
 		self._currentVideo = None
 		self._frameCursor = 0
 
-		self._lockForStopThread = threading.Lock()
-		self._shouldStop = False
 		self._queueForWaitingVideos = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE*2)
 		self._queueForLoadedVideos = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE)
+		self.pushVideoDataToWaitingQueue(dataSettings.DATA_QUEUE_MAX_SIZE)
 
-		self._pushVideoDataToWaitingQueue(dataSettings.DATA_QUEUE_MAX_SIZE)
-
-		self._loadVideoThread = threading.Thread(target=self._loadVideoData, args=())
-		self._loadVideoThread.start()
-
-	def Stop(self):
-		with self._lockForStopThread:
-			self._shouldStop = True
-
-	def __del__(self):
-		self.Stop()
-		self._loadVideoThread.join()
-		print("\t DataManagerBase.thread.join() successfully.")
-
+		self._executeLoadDataThreads(NUMBER_OF_LOAD_DATA_THREADS)
 
 	def GetBatchOfData(self, batchData_):
 		'''
@@ -297,7 +342,7 @@ class EvaluationDataManager(DataManagerBase):
 		self.isAllDataTraversed = False
 		self.isNewVideo = False
 		if self._currentVideo == None:
-			self._currentVideo = self._popVideoDataFromLoadedQueue(1)[0]
+			self._currentVideo = self._queueForLoadedVideos.get(block=True)
 
 		unrolledSize = min(dataSettings.BATCH_SIZE * dataSettings.UNROLLED_SIZE,
 				   self._currentVideo.totalFrames - self._frameCursor)
@@ -312,8 +357,8 @@ class EvaluationDataManager(DataManagerBase):
 			self._dataCursor += 1
 			self.isNewVideo = True
 
-			self._pushVideoDataToWaitingQueue(1)
-			self._appendVideoDataBackToDataList( [self._currentVideo] )
+			self.pushVideoDataToWaitingQueue(PRODUCE_CONSUME_RATIO)
+			self.appendVideoDataBackToDataList( [self._currentVideo] )
 
 			self._currentVideo.ReleaseImages()
 			self._currentVideo = None
@@ -322,77 +367,26 @@ class EvaluationDataManager(DataManagerBase):
 				self._dataCursor = 0
 				self.isAllDataTraversed = True
 
-	def _pushVideoDataToWaitingQueue(self, numberOfData_):
-		'''
-		    This function push 'numberOfData_' from the head of 'self._listOfData'
-		    to the queue that wait for loading video images.
-		    Note: If the '_queueForWaitingVideos' is full, ignore push.
-		'''
-		for i in range(numberOfData_):
-			try:
-				videoReader = self._listOfData.pop(0)
-				self._queueForWaitingVideos.put(videoReader, block=False)
-
-			except Full:
-				self._listOfData.append(videoReader)
-
-			except IndexError:
-				'''
-				    For the case that DATA_QUEUE_MAX_SIZE > TOTAL_DATA,
-				    the IndexError may be raised from '_listOfData.pop()'.
-				'''
-				pass
-
 	def _loadVideoData(self):
-		shouldStop = False
-		with self._lockForStopThread:
-			shouldStop = self._shouldStop
+		if self._queueForLoadedVideos.qsize() <= dataSettings.DATA_QUEUE_MAX_SIZE:
+			videoReader = self._queueForWaitingVideos.get(block=False)
+			videoReader.LoadVideoImages()
 
-		while not shouldStop:
-			if self._queueForLoadedVideos.qsize() <= dataSettings.DATA_QUEUE_MAX_SIZE:
+			try:
+				self._queueForLoadedVideos.put(videoReader, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+
+			except:
+				videoReader.ReleaseImages()
+				print("\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
+				      "); stuff VideoReader back to WaitingQueue.")
 				try:
-					videoReader = self._queueForWaitingVideos.get(block=False)
-					videoReader.LoadVideoImages()
-					self._queueForLoadedVideos.put(videoReader, block=True)
+					self._queueForWaitingVideos.put(videoReader, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
 
-				except Empty:
-					time.sleep(0.0005)
+				except Full:
+					print("\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
+					      "); stuff VideoReader back to Data list.")
+					with self._lockForDataList:
+						self._listOfData.insert(0, videoReader)
 
-				# Update shouldStop flag
-				with self._lockForStopThread:
-					shouldStop = self._shouldStop
-			else:
-				time.sleep(0.001)
-
-	def _popVideoDataFromLoadedQueue(self, numberOfData_):
-		'''
-		    This function pop 'numberOfData_' from the queue that contained
-		    loaded VideoData, and return them as list.
-		    Note: This function may Blcok the Caller.  However, if you have
-			  call the '_pushVideoDataToWaitingQueue()' which will
-			  remain the queue has certain element, this function may
-			  not Block the Caller.
-		'''
-		listOfLoadedVideo = []
-		for i in range(numberOfData_):
-			videoData = self._queueForLoadedVideos.get(block=True)
-			listOfLoadedVideo.append(videoData)
-
-		return listOfLoadedVideo
-
-	def _appendVideoDataBackToDataList(self, listOfVideoData_):
-		'''
-		    After you get the video from '_popVideoDataFromLoadedQueue()'
-		    and perform some operation on the videos, you should stuff that
-		    VideoReader back to the 'self._listOfData'.  Otherwise the
-		    VideoReader will getting fewer and fewer.
-		'''
-		self._listOfData += listOfVideoData_
-
-	def GetQueueInfo(self):
-		info = "listOfData.len() = " + str( len(self._listOfData) ) + ";\t"
-		info += "queueForWaiting.len() = " + str( self._queueForWaitingVideos.qsize() ) + ";\t"
-		info += "queueForLoaded.len() = " + str(self._queueForLoadedVideos.qsize() ) + ";\t"
-		return info
-
-
+		else:
+			time.sleep(0.001)
