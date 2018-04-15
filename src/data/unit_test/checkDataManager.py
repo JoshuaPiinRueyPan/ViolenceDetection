@@ -6,8 +6,6 @@ import time
 
 #PATH_TO_DATA = 'src/data/unit_test/videos.txt'
 PATH_TO_DATA = 'data/train.txt'
-#targetDataManager = 'train'
-targetDataManager = 'eval'
 
 def DrawInfo(targetImage_, listOfInfoToDisplay):
 	xLeft = 0
@@ -46,7 +44,7 @@ def Check_TrainDataManager():
 
 	while True:
 		'''
-		    The following Info should be extracted before calling 'GetBatchOfData()'
+		    The following Info should be extracted before calling 'AssignBatchData()'
 		'''
 		listOfBatchInfo = []
 		listOfBatchInfo.append('dataManager.epoch='+str(dataManager.epoch))
@@ -54,8 +52,8 @@ def Check_TrainDataManager():
 
 		batchData = BatchData()
 		startGetBatchTime = time.time()
-		dataManager.GetBatchOfData(batchData)
-		#batchData = dataManager.GetBatchOfData()
+		dataManager.AssignBatchData(batchData)
+		#batchData = dataManager.AssignBatchData()
 		finishGetBatchTime = time.time()
 		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
 
@@ -105,7 +103,7 @@ def Check_EvalDataManager():
 
 	while True:
 		'''
-		    The following Info should be extracted before calling 'GetBatchOfData()'
+		    The following Info should be extracted before calling 'AssignBatchData()'
 		'''
 		listOfBatchInfo = []
 		listOfBatchInfo.append('dataManager.isAllDataTraversed='+str(dataManager.isAllDataTraversed))
@@ -117,7 +115,7 @@ def Check_EvalDataManager():
 		print("Create time = ", endCreateTime - startCreateTime)
 
 		startGetBatchTime = time.time()
-		dataManager.GetBatchOfData(batchData)
+		dataManager.AssignBatchData(batchData)
 		finishGetBatchTime = time.time()
 		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime, "\n")
 
@@ -159,10 +157,11 @@ def Check_EvalDataManager():
 
 
 if __name__ == '__main__':
-	if targetDataManager == 'train':
+	userSelectedMode = int( input("Which DataManager do you want to test? (0:train / 1:eval)") )
+	if userSelectedMode == 0:
 		Check_TrainDataManager()
 
-	elif targetDataManager == 'eval':
+	elif userSelectedMode == 1:
 		Check_EvalDataManager()
 	else:
 		raise ValueError("You should specified which kind of DataManager you want to test:"

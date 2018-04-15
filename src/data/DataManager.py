@@ -3,6 +3,8 @@ import random
 import numpy as np
 import time
 import threading
+import settings.TrainSettings as trainSettings
+import settings.EvaluationSettings as evalSettings
 import settings.DataSettings as dataSettings
 from src.data.VideoData import VideoData
 import six
@@ -24,7 +26,8 @@ PRODUCE_CONSUME_RATIO = 5
 
 class BatchData:
 	def __init__(self):
-		self.numberOfUnrolls = 0
+		self.batchSize = 0
+		self.unrolledSize = 0
 		self.batchOfImages = None
 		self.batchOfLabels = None
 
@@ -134,10 +137,10 @@ class DataManagerBase:
 			    use the last frame always.
 			'''
 			arrayOfImages = np.zeros( [NUMBER_OF_FRAMES_TO_CONCAT_,
-						   dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3],
-						  dtype=np.float16 )
+						   dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS],
+						  dtype=dataSettings.FLOAT_TYPE )
 			arrayOfLabels = np.zeros( [NUMBER_OF_FRAMES_TO_CONCAT_, 2],
-						  dtype=np.float16 )
+						  dtype=dataSettings.FLOAT_TYPE )
 			
 			arrayOfImages[ : video_.totalFrames] = video_.images[startFrameIndex_:]
 			arrayOfLabels[ : video_.totalFrames] = video_.labels[startFrameIndex_:]
@@ -188,7 +191,7 @@ class DataManagerBase:
 
 
 	@abstractmethod
-	def GetBatchOfData(self):
+	def AssignBatchData(self):
 		pass
 
 	@abstractmethod
@@ -211,7 +214,7 @@ class TrainDataManager(DataManagerBase):
 
 		self._executeLoadDataThreads(NUMBER_OF_LOAD_DATA_THREADS)
 
-	def GetBatchOfData(self, batchData_):
+	def AssignBatchData(self, batchData_):
 		'''
 		    The user should pass BatchData as argument to this function,
 		    since this would be faster then this function return two numpy.array.
@@ -220,12 +223,13 @@ class TrainDataManager(DataManagerBase):
 
 		batchData = self._queueForLoadedVideos.get(block=True)
 
-		batchData_.numberOfUnrolls = batchData.numberOfUnrolls
+		batchData_.batchSize = batchData.batchSize
+		batchData_.unrolledSize = batchData.unrolledSize
 		batchData_.batchOfImages = batchData.batchOfImages
 		batchData_.batchOfLabels = batchData.batchOfLabels
 
 		self.step += 1
-		self._dataCursor += dataSettings.BATCH_SIZE
+		self._dataCursor += trainSettings.BATCH_SIZE
 		if self._dataCursor >= self.TOTAL_DATA:
 			with self._lockForDataList:
 				random.shuffle(self._listOfData)
@@ -233,7 +237,7 @@ class TrainDataManager(DataManagerBase):
 			self.epoch += 1
 			self.isNewEpoch = True
 
-		self.pushVideoDataToWaitingQueue(dataSettings.BATCH_SIZE * PRODUCE_CONSUME_RATIO)
+		self.pushVideoDataToWaitingQueue(trainSettings.BATCH_SIZE * PRODUCE_CONSUME_RATIO)
 
 		return batchData
 
@@ -241,35 +245,39 @@ class TrainDataManager(DataManagerBase):
 	def _loadVideoData(self):
 		if self._queueForLoadedVideos.qsize() <= dataSettings.DATA_QUEUE_MAX_SIZE:
 			listOfLoadedVideos = []
-			for i in range(dataSettings.BATCH_SIZE):
+			for i in range(trainSettings.BATCH_SIZE):
 				videoReader = self._queueForWaitingVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
 				videoReader.LoadVideoImages()
 				listOfLoadedVideos.append(videoReader)
 
-			arrayOfBatchImages = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE,
-							dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3],
-							dtype=np.float16 )
-			arrayOfBatchLabels = np.zeros( [dataSettings.BATCH_SIZE, dataSettings.UNROLLED_SIZE, 2],
-							dtype=np.float16 )
+			batchData = BatchData()
+			batchData.batchSize = trainSettings.BATCH_SIZE
+			batchData.unrolledSize = trainSettings.UNROLLED_SIZE
 
-			for i in range(dataSettings.BATCH_SIZE):
+			arrayOfBatchImages = np.zeros( [batchData.batchSize, batchData.unrolledSize,
+							dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS],
+							dtype=dataSettings.FLOAT_TYPE )
+			arrayOfBatchLabels = np.zeros( [batchData.batchSize, batchData.unrolledSize, 2],
+							dtype=dataSettings.FLOAT_TYPE )
+
+			for i in range(batchData.batchSize):
 				currentVideo = listOfLoadedVideos[i]
 				frameStartIndex = random.randint(0, 
-								max(0, currentVideo.totalFrames - dataSettings.UNROLLED_SIZE) )
+								max(0, currentVideo.totalFrames - batchData.unrolledSize) )
 
 				arrayOfImages, arrayOfLabels = self._getDataFromSingleVideo(currentVideo,
 											    frameStartIndex,
-											    dataSettings.UNROLLED_SIZE)
+											    batchData.unrolledSize)
 				# Release the video frames
 				currentVideo.ReleaseImages()
 
 				arrayOfBatchImages[i] = arrayOfImages
 				arrayOfBatchLabels[i] = arrayOfLabels
 
-			batchData = BatchData()
-			batchData.numberOfUnrolls = dataSettings.UNROLLED_SIZE
-			batchData.batchOfImages = arrayOfBatchImages.reshape( [-1, dataSettings.IMAGE_SIZE,
-										dataSettings.IMAGE_SIZE, 3] )
+			batchData.batchOfImages = arrayOfBatchImages.reshape( [-1,
+										dataSettings.IMAGE_SIZE,
+										dataSettings.IMAGE_SIZE,
+										dataSettings.IMAGE_CHANNELS] )
 			batchData.batchOfLabels = arrayOfBatchLabels.reshape( [-1, 2] )
 
 			try:
@@ -313,7 +321,7 @@ class EvaluationDataManager(DataManagerBase):
 
 			valLoss = 0
 			while not valDataSet.isAllDataTraversed:
-				valLoss += net.CalculateLoss(valDataSet.GetBatchOfData())
+				valLoss += net.CalculateLoss(valDataSet.AssignBatchData())
 				if valDataSet.isNewVideo:
 					net.ResetCellState()
 
@@ -334,7 +342,7 @@ class EvaluationDataManager(DataManagerBase):
 
 		self._executeLoadDataThreads(NUMBER_OF_LOAD_DATA_THREADS)
 
-	def GetBatchOfData(self, batchData_):
+	def AssignBatchData(self, batchData_):
 		'''
 		    The user should pass BatchData as argument to this function,
 		    since this would be faster then this function return two numpy.array.
@@ -344,10 +352,11 @@ class EvaluationDataManager(DataManagerBase):
 		if self._currentVideo == None:
 			self._currentVideo = self._queueForLoadedVideos.get(block=True)
 
-		unrolledSize = min(dataSettings.BATCH_SIZE * dataSettings.UNROLLED_SIZE,
+		unrolledSize = min(evalSettings.UNROLLED_SIZE,
 				   self._currentVideo.totalFrames - self._frameCursor)
 
-		batchData_.numberOfUnrolls = unrolledSize
+		batchData_.batchSize = 1
+		batchData_.unrolledSize = unrolledSize
 		batchData_.batchOfImages, batchData_.batchOfLabels = self._getDataFromSingleVideo(self._currentVideo,
 												  self._frameCursor, unrolledSize)
 		self._frameCursor += unrolledSize
