@@ -59,19 +59,26 @@ class Net(NetworkBase):
 												    self._NUMBER_OF_NEURONS_IN_LSTM_1,
 												    dropoutProb_=0.5,
 												    isTraining_=self._isTraining)
-		logits = FullyConnectedLayer('Fc3', net, numberOfOutputs_=netSettings.NUMBER_OF_CATEGORIES)
-		print("Fc_final logits.shape = ", logits.shape)  # The output shape is (batchSize, unrolledSize, NUMBER_OF_CATEGORIES)
+		self._logits = FullyConnectedLayer('Fc3', net, numberOfOutputs_=netSettings.NUMBER_OF_CATEGORIES)
+		print("Fc_final logits.shape = ", self.logits.shape)  # The output shape is (batchSize, unrolledSize, NUMBER_OF_CATEGORIES)
+
+		self._updateOp = tf.group(updateVariablesOp1)
+
+	@property
+	def logitsOp(self):
+		return self._logits
+
+	@property
+	def updateOp(self):
+		return self._updateOp
 
 
-		return logits, updateVariablesOperation
-
-
-	def GetListOfStatesInLSTM(self):
+	def GetListOfStatesTensorInLSTMs(self):
 		'''
 		    You should Not Only sess.run() the net.logits, but also this listOfTensors
 		    to get the States of LSTM.  And assign it to PlaceHolder next time.
 		    ex:
-			>> tupleOfResults = sess.run( [out] + net.GetListOfStatesInLSTM(), ...)
+			>> tupleOfResults = sess.run( [out] + net.GetListOfStatesTensorInLSTMs(), ...)
 			>> listOfResults = list(tupleOfResults)
 			>> output = listOfResults.pop(0)
 			>> listOfStates = listOfResults
@@ -87,8 +94,8 @@ class Net(NetworkBase):
 		    of the LSTM states.
 		      You can use this function as follows:
 		    >> feed_dict = { netInput : batchOfImages }
-		    >> feedDictOFLSTM = net.GetLSTM_Feed_Dict(BATCH_SIZE, previousStateValues)
-		    >> tupleOfOutputs = sess.run( [out] + net.GetListOfStatesInLSTM(),
+		    >> feedDictOFLSTM = net.GetLSTM_Feed_Dict(BATCH_SIZE, listOfPreviousStateValues)
+		    >> tupleOfOutputs = sess.run( [out] + net.GetListOfStatesTensorInLSTMs(),
 						  feed_dict = feed_dict.update(feedDictOFLSTM) ) 
 		    >> listOfOutputs = list(tupleOfOutputs)
 		    >> output = listOfOutputs.pop(0)
@@ -103,7 +110,7 @@ class Net(NetworkBase):
 			#initialCellState = tf.nn.rnn_cell.LSTMStateTuple(initialCellState[0], initialCellState[1])
 			initialCellState = self._lstm_1.zeros_states(BATCH_SIZE_, layerSettings.FLOAT_TYPE)
 
-			return {self.statePlaceHolderOfLSTM_1 : initialCellState }
+			return {self._statePlaceHolderOfLSTM_1 : initialCellState }
 		else:
 			if len(listOfPreviousStateValues_) != 1:
 				errorMessage = "len(listOfPreviousStateValues_) = " + str( len(listOfPreviousStateValues_) )
@@ -111,5 +118,5 @@ class Net(NetworkBase):
 				errorMessage += "\t Do you change the Network Structure, such as Add New LSTM?\n"
 				errorMessage += "\t Or, do you add more tensor to session.run()?\n"
 
-			return { self.statePlaceHolderOfLSTM_1 : previousStateValues[0] }
+			return { self._statePlaceHolderOfLSTM_1 : listOfPreviousStateValues_[0] }
 

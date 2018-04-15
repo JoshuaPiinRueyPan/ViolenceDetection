@@ -23,13 +23,24 @@ class Classifier:
 			  crossEntropy.shape: [batchSize, unrolledSize]
 			  predictions.shape: [batchSize, unrolledSize, NUMBER_OF_CATEGORIES]
 		'''
-		self.logits, updateSubnetOperation = self.net.Build()
-		self.predictions = tf.nn.softmax(self.logits, axis=-1, name="tf.nn.softmax")
+		self.net.Build()
+		self._predictions = tf.nn.softmax(self.net.logits, axis=-1, name="tf.nn.softmax")
 		with tf.name_scope("Loss"):
-			crossEntropy = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.groundTruth, dim=-1,
-										name="tf.nn.softmax_cross_entropy_with_logits")
+			self._crossEntropyOp = tf.nn.softmax_cross_entropy_with_logits(	logits=self.net.logits,
+											labels=self.groundTruth,
+											dim=-1,
+											name="tf.nn.softmax_cross_entropy_with_logits")
 
-		return crossEntropy, self.predictions, updateSubnetOperation
+	@property
+	def predictionsOp(self):
+		return self._predictions
 
+	@property
+	def crossEntropyLossOp(self):
+		return self._crossEntropyOp
+
+	@property
+	def updateOp(self):
+		return self._net.updateOp
 
 

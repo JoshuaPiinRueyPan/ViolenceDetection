@@ -204,8 +204,8 @@ class TrainDataManager(DataManagerBase):
 		super().__init__(dataSettings.PATH_TO_TRAIN_SET_LIST)
 
 		# Public variables
-		self.epoch = 0
-		self.step = 0
+		self._epoch = 0
+		self._step = 0
 
 		self._isNewEpoch = True
 		self._dataCursor = 0
@@ -228,19 +228,30 @@ class TrainDataManager(DataManagerBase):
 		batchData_.batchOfImages = batchData.batchOfImages
 		batchData_.batchOfLabels = batchData.batchOfLabels
 
-		self.step += 1
+		self._step += 1
 		self._dataCursor += trainSettings.BATCH_SIZE
 		if self._dataCursor >= self.TOTAL_DATA:
 			with self._lockForDataList:
 				random.shuffle(self._listOfData)
 			self._dataCursor = 0
-			self.epoch += 1
+			self._epoch += 1
 			self.isNewEpoch = True
 
 		self.pushVideoDataToWaitingQueue(trainSettings.BATCH_SIZE * PRODUCE_CONSUME_RATIO)
 
 		return batchData
 
+	@property
+	def isNewEpoch(self):
+		return self._isNewEpoch
+
+	@property
+	def epoch(self):
+		return self._epoch
+
+	@property
+	def step(self):
+		return self._step
 	
 	def _loadVideoData(self):
 		if self._queueForLoadedVideos.qsize() <= dataSettings.DATA_QUEUE_MAX_SIZE:
@@ -330,8 +341,8 @@ class EvaluationDataManager(DataManagerBase):
 	'''
 	def __init__(self, PATH_TO_DATA_SET_CATELOG_, NUMBER_OF_LOAD_DATA_THREADS=1):
 		super().__init__(PATH_TO_DATA_SET_CATELOG_)
-		self.isAllDataTraversed = False
-		self.isNewVideo = True
+		self._isAllDataTraversed = False
+		self._isNewVideo = True
 		self._dataCursor = 0
 		self._currentVideo = None
 		self._frameCursor = 0
@@ -347,8 +358,8 @@ class EvaluationDataManager(DataManagerBase):
 		    The user should pass BatchData as argument to this function,
 		    since this would be faster then this function return two numpy.array.
 		'''
-		self.isAllDataTraversed = False
-		self.isNewVideo = False
+		self._isAllDataTraversed = False
+		self._isNewVideo = False
 		if self._currentVideo == None:
 			self._currentVideo = self._queueForLoadedVideos.get(block=True)
 
@@ -364,7 +375,7 @@ class EvaluationDataManager(DataManagerBase):
 		if self._frameCursor >= self._currentVideo.totalFrames:
 			self._frameCursor = 0
 			self._dataCursor += 1
-			self.isNewVideo = True
+			self._isNewVideo = True
 
 			self.pushVideoDataToWaitingQueue(PRODUCE_CONSUME_RATIO)
 			self.appendVideoDataBackToDataList( [self._currentVideo] )
@@ -374,7 +385,15 @@ class EvaluationDataManager(DataManagerBase):
 		
 			if self._dataCursor >= self.TOTAL_DATA:
 				self._dataCursor = 0
-				self.isAllDataTraversed = True
+				self._isAllDataTraversed = True
+
+	@property
+	def isAllDataTraversed(self):
+		return self._isAllDataTraversed
+
+	@property
+	def isNewVideo(self):
+		return self._isNewVideo
 
 	def _loadVideoData(self):
 		if self._queueForLoadedVideos.qsize() <= dataSettings.DATA_QUEUE_MAX_SIZE:
