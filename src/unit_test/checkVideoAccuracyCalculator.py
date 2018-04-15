@@ -104,9 +104,9 @@ def Check_ProcessingTime():
 
 	accuracyCalculator = VideosAccuracyCalculator()
 	
-	arrayOfAppendTime = np.zeros([400])
 	predictionOfAllVideos = np.zeros([400, 40, 2])
 	labelOfAllVideos = np.zeros([400, 40, 2])
+
 	for i in range(400):  # Test set has 400 videos
 		for j in range(40):  # Videos has 40 frames in average.
 			fightProbility = np.random.rand()
@@ -119,14 +119,11 @@ def Check_ProcessingTime():
 			labelOfAllVideos[i, :, :] = np.tile(VideoData.NO_FIGHT_LABEL, [40, 1])
 		
 
-		startAppendTime = time.time()
-		accuracyCalculator.AppendNetPredictions(predictionOfAllVideos, labelOfAllVideos)
-		endAppendTime = time.time()
+	startAppendTime = time.time()
+	accuracyCalculator.AppendNetPredictions(predictionOfAllVideos, labelOfAllVideos)
+	endAppendTime = time.time()
 
-		arrayOfAppendTime[i] = endAppendTime - startAppendTime
-
-	averagedAppendTime = np.mean(arrayOfAppendTime)
-	print("\t Averaged AppendTime: ", averagedAppendTime)
+	print("\t Averaged AppendTime: ", endAppendTime - startAppendTime)
 
 	startCalculateTime = time.time()
 	bestThreshold, bestAccuracy = accuracyCalculator.CalculateBestAccuracyAndThreshold(tf_summaryWriter_=summaryWriter, currentEpoch_=2)
@@ -136,6 +133,7 @@ def Check_ProcessingTime():
 
 	print("\t Calculate Best Accuracy time: ", endCalculateTime - startCalculateTime)
 
+	accuracyCalculator.Reset()
 	print("\t check passed.")
 			
 

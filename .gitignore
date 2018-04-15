@@ -12,3 +12,4 @@
 *.jpg
 data/*
 temp/*
+src/unit_test/accuracy/*
