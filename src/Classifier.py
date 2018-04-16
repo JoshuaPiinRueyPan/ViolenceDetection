@@ -2,19 +2,20 @@ import tensorflow as tf
 import settings.LayerSettings as layerSettings
 import settings.NetSettings as netSettings
 import settings.DataSettings as dataSettings
-import settings.TrainSettings as trainSettings
 
 class Classifier:
 	def __init__(self):
 		self.inputImage = tf.placeholder(dataSettings.FLOAT_TYPE,
-						 shape=[trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE,
+						 shape=[None, None,
 							 dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS])
+		self.batchSize = tf.placeholder(tf.int32)
+		self.unrolledSize = tf.placeholder(tf.int32)
 		self.isTraining = tf.placeholder(tf.bool)
 		self.trainingStep = tf.placeholder(tf.int64)
-		self.groundTruth = tf.placeholder(dataSettings.FLOAT_TYPE, shape=[trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE,
+		self.groundTruth = tf.placeholder(dataSettings.FLOAT_TYPE, shape=[None, None,
 										  dataSettings.NUMBER_OF_CATEGORIES])
 
-		self.net = netSettings.GetNetwork(self.inputImage, self.isTraining, self.trainingStep)
+		self.net = netSettings.GetNetwork(self.inputImage, self.batchSize, self.unrolledSize, self.isTraining, self.trainingStep)
 
 	def Build(self):
 		'''

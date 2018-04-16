@@ -65,6 +65,8 @@ class Evaluator:
 		self._dataManager.AssignBatchData(batchData)
 		
 		inputFeedDict = { self._classifier.inputImage : batchData.batchOfImages,
+				  self._classifier.batchSize : batchData.batchSize,
+				  self._classifier.unrolledSize : batchData.unrolledSize,
 				  self._classifier.isTraining : False,
 				  self._classifier.trainingStep : 0,
 				  self._classifier.groundTruth : batchData.batchOfLabels }

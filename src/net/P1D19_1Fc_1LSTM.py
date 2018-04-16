@@ -4,14 +4,15 @@ from src.layers.BasicLayers import *
 from src.layers.RNN import *
 import settings.LayerSettings as layerSettings
 import settings.DataSettings as dataSettings
-import settings.TrainSettings as trainSettings
 import numpy as np
 
 DARKNET19_MODEL_PATH = 'data/pretrainModels/darknet19/darknet19.pb'
 
 class Net(NetworkBase):
-	def __init__(self, inputImage_, isTraining_, trainingStep_):
+	def __init__(self, inputImage_, batchSize_, unrolledSize_, isTraining_, trainingStep_):
 		self._inputImage = inputImage_
+		self._batchSize = batchSize_
+		self._unrolledSize = unrolledSize_
 		self._isTraining = isTraining_
 		self._trainingStep = trainingStep_
 	
@@ -21,7 +22,11 @@ class Net(NetworkBase):
 	def Build(self):
 		darknet19_GraphDef = tf.GraphDef()
 
-		convInput = tf.reshape(self._inputImage, [trainSettings.BATCH_SIZE * trainSettings.UNROLLED_SIZE,
+		'''
+		      The CNN only take input shape [..., w, h, c].  Thus, move the UNROLLED_SIZE dimension
+		    to merged with BATCH_SIZE, and form the shape: [b*u, w, h, c].
+		'''
+		convInput = tf.reshape(self._inputImage, [-1,
 							  dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS])
 
 		with tf.name_scope("DarkNet19"):
@@ -54,12 +59,12 @@ class Net(NetworkBase):
 			'''
 			    Note: For tf.nn.rnn_cell.dynamic_rnn(), the input shape of [1:] must be explicit.
 			          i.e., one Can't Reshape the out by:
-				  out = tf.reshape(out, [trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE, -1])
+				  out = tf.reshape(out, [BATCH_SIZE, UNROLLED_SIZE, -1])
 				  since '-1' is implicit dimension.
 			'''
 			featuresShapeInOneBatch = out.shape[1:].as_list()
 			print("featuresShapeInOneBatch = ", featuresShapeInOneBatch)
-			targetShape = [trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE] + featuresShapeInOneBatch
+			targetShape = [self._batchSize, self._unrolledSize] + featuresShapeInOneBatch
 			out = tf.reshape(out, targetShape)
 
 		print("LSTM input.shape = ", out.shape)
@@ -69,10 +74,12 @@ class Net(NetworkBase):
 												    self._NUMBER_OF_NEURONS_IN_LSTM_1,
 												    isTraining_=self._isTraining,
 												    dropoutProb_=0.5)
-		print("out.shape = ", out.shape)
-		out = tf.reshape(out, [trainSettings.BATCH_SIZE*trainSettings.UNROLLED_SIZE, -1])
+		print("Fc_final input.shape = ", out.shape)
+		featuresShapeInOneBatch = out.shape[2:].as_list()
+		targetShape = [self._batchSize * self._unrolledSize] + featuresShapeInOneBatch
+		out = tf.reshape(out, targetShape)
 		out = FullyConnectedLayer('Fc3', out, numberOfOutputs_=dataSettings.NUMBER_OF_CATEGORIES)
-		self._logits = tf.reshape(out, [trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE, -1])
+		self._logits = tf.reshape(out, [self._batchSize, self._unrolledSize, -1])
 		print("Fc_final logits.shape = ", self._logits.shape)  # The output shape is (batchSize, unrolledSize, NUMBER_OF_CATEGORIES)
 
 		self._updateOp = tf.group(updateVariablesOp1)

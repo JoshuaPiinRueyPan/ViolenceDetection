@@ -60,6 +60,8 @@ class Trainer:
 		currentLearningRate = trainSettings.GetLearningRate(self._dataManager.epoch, self._dataManager.step)
 
 		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
+				  self._classifier.batchSize : self._batchData.batchSize,
+				  self._classifier.unrolledSize : self._batchData.unrolledSize,
 				  self._classifier.isTraining : True,
 				  self._classifier.trainingStep : self._dataManager.step,
 				  self._classifier.groundTruth : self._batchData.batchOfLabels,
@@ -83,6 +85,8 @@ class Trainer:
 		    batch normalization).  After training, following code update such variables.
 		'''
 		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
+				  self._classifier.batchSize : self._batchData.batchSize,
+				  self._classifier.unrolledSize : self._batchData.unrolledSize,
 				  self._classifier.isTraining : False,
 				  self._classifier.trainingStep : self._dataManager.step,
 				  self._classifier.groundTruth : self._batchData.batchOfLabels }
@@ -101,6 +105,8 @@ class Trainer:
 		    Note: This function does not back propergate or change net weightings.
 		'''
 		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
+				  self._classifier.batchSize : self._batchData.batchSize,
+				  self._classifier.unrolledSize : self._batchData.unrolledSize,
 				  self._classifier.isTraining : False,
 				  self._classifier.trainingStep : self._dataManager.step,
 				  self._classifier.groundTruth : self._batchData.batchOfLabels }
