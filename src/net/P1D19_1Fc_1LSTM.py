@@ -1,18 +1,17 @@
 import tensorflow as tf
-from src.net.SubnetBase import NetBase
+from src.net.NetBase import *
 from src.layers.BasicLayers import *
-import settings.NetSettings as netSettings
+from src.layers.RNN import *
 import settings.LayerSettings as layerSettings
+import settings.DataSettings as dataSettings
+import settings.TrainSettings as trainSettings
 import numpy as np
 
-DARKNET19_MODEL_PATH = 'data/darknet19/darknet19.pb'
-MSRA_INITIALIZER = tf.contrib.layers.variance_scaling_initializer()
+DARKNET19_MODEL_PATH = 'data/pretrainModels/darknet19/darknet19.pb'
 
 class Net(NetworkBase):
-	def __init__(self, inputImage_, BATCH_SIZE_, UNROLLED_SIZE_, isTraining_, trainingStep_):
+	def __init__(self, inputImage_, isTraining_, trainingStep_):
 		self._inputImage = inputImage_
-		self._BATCH_SIZE = BATCH_SIZE_
-		self._UNROLLED_SIZE = UNROLLED_SIZE_
 		self._isTraining = isTraining_
 		self._trainingStep = trainingStep_
 	
@@ -21,13 +20,15 @@ class Net(NetworkBase):
 
 	def Build(self):
 		darknet19_GraphDef = tf.GraphDef()
-		self._inputImage = tf.reshape(self._inputImage, [self._BATCH_SIZE*self._UNROLLED_SIZE, -1])
+
+		convInput = tf.reshape(self._inputImage, [trainSettings.BATCH_SIZE * trainSettings.UNROLLED_SIZE,
+							  dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS])
 
 		with tf.name_scope("DarkNet19"):
 			with open(DARKNET19_MODEL_PATH, 'rb') as modelFile:
 				darknet19_GraphDef.ParseFromString(modelFile.read())
 				listOfOperations = tf.import_graph_def(darknet19_GraphDef,
-									input_map={"input": self._inputImage},
+									input_map={"input": convInput},
 									return_elements=["BiasAdd_13"])
 #									return_elements=["32-leaky"])
 #									return_elements=["BiasAdd_14"])
@@ -47,20 +48,32 @@ class Net(NetworkBase):
 		print("darknetOutput.shape = ", darknetOutput.shape)
 
 		with tf.name_scope("Fc_ConcatPair"):
-			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=2048)
-			net, updateVariablesOp1 = BatchNormalization('BN1', net, isConvLayer_=False,
+			out = FullyConnectedLayer('Fc1', darknetOutput, numberOfOutputs_=2048)
+			out, updateVariablesOp1 = BatchNormalization('BN1', out, isConvLayer_=False,
 								     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			out = tf.reshape(out, [self._BATCH_SIZE, self._UNROLLED_SIZE, -1])
+			'''
+			    Note: For tf.nn.rnn_cell.dynamic_rnn(), the input shape of [1:] must be explicit.
+			          i.e., one Can't Reshape the out by:
+				  out = tf.reshape(out, [trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE, -1])
+				  since '-1' is implicit dimension.
+			'''
+			featuresShapeInOneBatch = out.shape[1:].as_list()
+			print("featuresShapeInOneBatch = ", featuresShapeInOneBatch)
+			targetShape = [trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE] + featuresShapeInOneBatch
+			out = tf.reshape(out, targetShape)
 
 		print("LSTM input.shape = ", out.shape)
 
 		out, self._stateTensorOfLSTM_1, self._statePlaceHolderOfLSTM_1, self._lstm_1 = LSTM("LSTM_1",
 												    out,
 												    self._NUMBER_OF_NEURONS_IN_LSTM_1,
-												    dropoutProb_=0.5,
-												    isTraining_=self._isTraining)
-		self._logits = FullyConnectedLayer('Fc3', net, numberOfOutputs_=netSettings.NUMBER_OF_CATEGORIES)
-		print("Fc_final logits.shape = ", self.logits.shape)  # The output shape is (batchSize, unrolledSize, NUMBER_OF_CATEGORIES)
+												    isTraining_=self._isTraining,
+												    dropoutProb_=0.5)
+		print("out.shape = ", out.shape)
+		out = tf.reshape(out, [trainSettings.BATCH_SIZE*trainSettings.UNROLLED_SIZE, -1])
+		out = FullyConnectedLayer('Fc3', out, numberOfOutputs_=dataSettings.NUMBER_OF_CATEGORIES)
+		self._logits = tf.reshape(out, [trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE, -1])
+		print("Fc_final logits.shape = ", self._logits.shape)  # The output shape is (batchSize, unrolledSize, NUMBER_OF_CATEGORIES)
 
 		self._updateOp = tf.group(updateVariablesOp1)
 
@@ -106,9 +119,8 @@ class Net(NetworkBase):
 			    For the first time (or, the first of Unrolls), there's no previous state,
 			    return zeros state.
 			'''
-			#initialCellState = tuple( [np.zeros([BATCH_SIZE_, self._NUMBER_OF_NEURONS_IN_LSTM_1])] * 2 )
-			#initialCellState = tf.nn.rnn_cell.LSTMStateTuple(initialCellState[0], initialCellState[1])
-			initialCellState = self._lstm_1.zeros_states(BATCH_SIZE_, layerSettings.FLOAT_TYPE)
+			initialCellState = tuple( [np.zeros([BATCH_SIZE_, self._NUMBER_OF_NEURONS_IN_LSTM_1])] * 2 )
+			initialCellState = tf.nn.rnn_cell.LSTMStateTuple(initialCellState[0], initialCellState[1])
 
 			return {self._statePlaceHolderOfLSTM_1 : initialCellState }
 		else:

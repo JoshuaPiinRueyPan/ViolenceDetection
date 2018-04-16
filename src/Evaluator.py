@@ -1,5 +1,6 @@
-from src.data.DataManager import EvaluationDataManager
+from src.data.DataManager import EvaluationDataManager, BatchData
 from src.AccuracyCalculator import *
+import settings.TrainSettings as trainSettings
 import os
 
 class Evaluator:
@@ -8,12 +9,12 @@ class Evaluator:
 		    EVALUATOR_TYPE_ should be 'validation' or 'test'
 		'''
 		self._dataManager = EvaluationDataManager(PATH_TO_DATA_CATELOG_)
-		self.classifier = classifier_
+		self._classifier = classifier_
 		self._lossOp = classifier_.crossEntropyLossOp
 		self._predictionsOp = classifier_.predictionsOp
 		self._accuracyCalculator = VideosAccuracyCalculator()
 
-		self._sumWriter = tf.summary.FileWriter( os.join(trainSettings.PATH_TO_SAVE_MODEL, EVALUATOR_TYPE_) )
+		self._sumWriter = tf.summary.FileWriter( os.path.join(trainSettings.PATH_TO_SAVE_MODEL, EVALUATOR_TYPE_) )
 
 		# Pause DataManager to save MainMemory
 		self._dataManager.Pause()
@@ -28,21 +29,18 @@ class Evaluator:
 		self._dataManager.Continue()
 		self.listOfPreviousCellState = None
 
-		totalLoss = 0
-		videoCounted = 0
-		totalCorrectCount = 0
+		listOfLoss = []
 		while not self._dataManager.isAllDataTraversed:
 			currentLoss = self._calculateValidationForSingleBatch(tf_session_)
 
-			totalLoss += currentLoss
-			videoCount += 1
+			listOfLoss.append(currentLoss)
 
 			if self._dataManager.isNewVideo:
 				self.listOfPreviousCellState = None
 
 
 		self._dataManager.Pause()
-		meanLoss = totalLoss / videoCounted
+		meanLoss = np.mean(listOfLoss)
 		if threshold_ == None:
 			threshold, accuracy = self._accuracyCalculator.CalculateBestAccuracyAndThreshold(self.summaryWriter,
 													 currentEpoch_)
@@ -62,26 +60,26 @@ class Evaluator:
 		return meanLoss, threshold, accuracy
 
 
-	def _calculateValidationForSingleBatch(self, session, shouldSaveSummary):
+	def _calculateValidationForSingleBatch(self, session):
 		batchData = BatchData()
 		self._dataManager.AssignBatchData(batchData)
 		
-		inputFeedDict = { self.inputImage : batchData.batchOfImages,
-				  self.BATCH_SIZE : batchData.batchSize,
-				  self.UNROLLED_SIZE : batchData.unrolledSize,
-				  self.isTraining : False,
-				  self.trainingStep : 0,
-				  self.groundTruth : batchData.batchOfLabels }
-		cellStateFeedDict = self.classifier.GetFeedDictOfLSTM(batchData.batchSize, self.listOfPreviousCellState)
+		inputFeedDict = { self._classifier.inputImage : batchData.batchOfImages,
+				  self._classifier.isTraining : False,
+				  self._classifier.trainingStep : 0,
+				  self._classifier.groundTruth : batchData.batchOfLabels }
+		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(batchData.batchSize, self.listOfPreviousCellState)
 
-		tupleOfOutputs = session.run( [self._lossOp, self._predictionsOp] + self.net.GetListOfStatesTensorInLSTMs(),
-			     		      feed_dict = inputFeedDict.update(cellStateFeedDict) )
+		inputFeedDict.update(cellStateFeedDict)
+
+		tupleOfOutputs = session.run( [self._lossOp, self._predictionsOp] + self._classifier.net.GetListOfStatesTensorInLSTMs(),
+			     		      feed_dict = inputFeedDict )
 		listOfOutputs = list(tupleOfOutputs)
 		batchLoss = listOfOutputs.pop(0)
 		predictions = listOfOutputs.pop(0)
 		self.listOfPreviousCellState = listOfOutputs
 
-		self._accuracyCalculator.AppendNetPredictions(predictions, batchData.arrayOfLabels)
+		self._accuracyCalculator.AppendNetPredictions(predictions, batchData.batchOfLabels)
 
 		return batchLoss
 

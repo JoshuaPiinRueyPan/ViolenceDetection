@@ -9,8 +9,15 @@ PATH_TO_TEST_SET_CATELOG = 'data/test.txt'
     'BATCH_SIZE': How many Videos should be used for a single step.
     'UNROLLED_SIZE':  How many Frames should be extracted from a video.
 '''
-IMAGE_SIZE = 448
+IMAGE_SIZE = 224
 IMAGE_CHANNELS = 3
+
+'''
+    In this project, categories = {NoFight, Fight}
+'''
+NUMBER_OF_CATEGORIES = 2
+
+
 
 #####################
 # Advenced Settings #

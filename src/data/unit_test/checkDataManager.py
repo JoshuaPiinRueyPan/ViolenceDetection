@@ -38,8 +38,7 @@ def Check_TrainDataManager():
 	pauseLoadData = False
 
 	print("Start reading videos...")
-	dataSettings.PATH_TO_TRAIN_SET_LIST = PATH_TO_DATA
-	dataManager = TrainDataManager()
+	dataManager = TrainDataManager(PATH_TO_DATA)
 	print("Read videos finished.")
 
 	while True:
@@ -53,16 +52,24 @@ def Check_TrainDataManager():
 		batchData = BatchData()
 		startGetBatchTime = time.time()
 		dataManager.AssignBatchData(batchData)
-		#batchData = dataManager.AssignBatchData()
 		finishGetBatchTime = time.time()
 		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime)
 
 		info = dataManager.GetQueueInfo()
 		print("\t" + info + "\n")
+
+		batchData.batchOfImages = batchData.batchOfImages.reshape([batchData.batchSize * batchData.unrolledSize,
+									   dataSettings.IMAGE_SIZE,
+									   dataSettings.IMAGE_SIZE,
+									   dataSettings.IMAGE_CHANNELS])
+		batchData.batchOfLabels = batchData.batchOfLabels.reshape([batchData.batchSize * batchData.unrolledSize,
+									   dataSettings.NUMBER_OF_CATEGORIES])
+
 		i = 0
 		while i < batchData.batchOfImages.shape[0]:
 			currentImage = batchData.batchOfImages[i]
 			currentImage = convertNetInputToCV_Format(currentImage)
+			currentImage = cv2.resize(currentImage, (500, 500))
 			currentLabel = batchData.batchOfLabels[i]
 
 			listOfInfoToDisplay = []
@@ -125,6 +132,7 @@ def Check_EvalDataManager():
 		while i < batchData.batchOfImages.shape[0]:
 			currentImage = batchData.batchOfImages[i]
 			currentImage = convertNetInputToCV_Format(currentImage)
+			currentImage = cv2.resize(currentImage, (500, 500))
 			currentLabel = batchData.batchOfLabels[i]
 
 			listOfInfoToDisplay = []

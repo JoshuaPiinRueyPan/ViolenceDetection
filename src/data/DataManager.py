@@ -200,8 +200,8 @@ class DataManagerBase:
 
 
 class TrainDataManager(DataManagerBase):
-	def __init__(self, NUMBER_OF_LOAD_DATA_THREADS=4):
-		super().__init__(dataSettings.PATH_TO_TRAIN_SET_LIST)
+	def __init__(self, PATH_TO_DATA_SET_CATELOG_, NUMBER_OF_LOAD_DATA_THREADS=4):
+		super().__init__(PATH_TO_DATA_SET_CATELOG_)
 
 		# Public variables
 		self._epoch = 0
@@ -216,8 +216,13 @@ class TrainDataManager(DataManagerBase):
 
 	def AssignBatchData(self, batchData_):
 		'''
-		    The user should pass BatchData as argument to this function,
+		      The user should pass BatchData as argument to this function,
 		    since this would be faster then this function return two numpy.array.
+
+		      The 'batchData_.batchOfImages' will be assigned as the shape:
+		    [BATCH_SIZE, UNROLLED_SIZE, w, h, c].
+		      The 'batchData_.batchOfLabels' will be assigned as the shape:
+		    [BATCH_SIZE, UNROLLED_SIZE, 2].
 		'''
 		self._isNewEpoch = False
 
@@ -235,7 +240,7 @@ class TrainDataManager(DataManagerBase):
 				random.shuffle(self._listOfData)
 			self._dataCursor = 0
 			self._epoch += 1
-			self.isNewEpoch = True
+			self._isNewEpoch = True
 
 		self.pushVideoDataToWaitingQueue(trainSettings.BATCH_SIZE * PRODUCE_CONSUME_RATIO)
 
@@ -285,29 +290,26 @@ class TrainDataManager(DataManagerBase):
 				arrayOfBatchImages[i] = arrayOfImages
 				arrayOfBatchLabels[i] = arrayOfLabels
 
-			batchData.batchOfImages = arrayOfBatchImages.reshape( [-1,
-										dataSettings.IMAGE_SIZE,
-										dataSettings.IMAGE_SIZE,
-										dataSettings.IMAGE_CHANNELS] )
-			batchData.batchOfLabels = arrayOfBatchLabels.reshape( [-1, 2] )
+			batchData.batchOfImages = arrayOfBatchImages
+			batchData.batchOfLabels = arrayOfBatchLabels
 
 			try:
 				self._queueForLoadedVideos.put(batchData, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
 				self.appendVideoDataBackToDataList(listOfLoadedVideos)
 
 			except Full:
-				print("\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
-				      ");  put VideoReader back to WaitingQueue")
+				#print("\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
+				#      ");  put VideoReader back to WaitingQueue")
 				try:
 					while len(listOfLoadedVideos) > 0:
 						eachVideoReader = listOfLoadedVideos.pop(0)
 						self._queueForWaitingVideos.put(eachVideoReader, block=True,
 										timeout=TIMEOUT_FOR_WAIT_QUEUE)
-						print("\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
-						      ")...")
+						#print("\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
+						#      ")...")
 				except Full:
-					print("\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
-					      "); put VideoReader back to data list")
+					#print("\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
+					#      "); put VideoReader back to data list")
 					listOfLoadedVideos.insert(0, eachVideoReader)
 					with self._lockForDataList:
 						self._listOfData = listOfLoadedVideos + self._listOfData
@@ -355,8 +357,13 @@ class EvaluationDataManager(DataManagerBase):
 
 	def AssignBatchData(self, batchData_):
 		'''
-		    The user should pass BatchData as argument to this function,
+		      The user should pass BatchData as argument to this function,
 		    since this would be faster then this function return two numpy.array.
+
+		      The 'batchData_.batchOfImages' will be assigned as the shape:
+		    [BATCH_SIZE, UNROLLED_SIZE, w, h, c].
+		      The 'batchData_.batchOfLabels' will be assigned as the shape:
+		    [BATCH_SIZE, UNROLLED_SIZE, 2].
 		'''
 		self._isAllDataTraversed = False
 		self._isNewVideo = False
@@ -370,6 +377,14 @@ class EvaluationDataManager(DataManagerBase):
 		batchData_.unrolledSize = unrolledSize
 		batchData_.batchOfImages, batchData_.batchOfLabels = self._getDataFromSingleVideo(self._currentVideo,
 												  self._frameCursor, unrolledSize)
+		batchData_.batchOfImages = batchData_.batchOfImages.reshape([batchData_.batchSize,
+									     batchData_.unrolledSize,
+									     dataSettings.IMAGE_SIZE,
+									     dataSettings.IMAGE_SIZE,
+									     dataSettings.IMAGE_CHANNELS])
+		batchData_.batchOfLabels = batchData_.batchOfLabels.reshape([batchData_.batchSize,
+									     batchData_.unrolledSize,
+									     dataSettings.NUMBER_OF_CATEGORIES])
 		self._frameCursor += unrolledSize
 
 		if self._frameCursor >= self._currentVideo.totalFrames:
@@ -405,14 +420,14 @@ class EvaluationDataManager(DataManagerBase):
 
 			except:
 				videoReader.ReleaseImages()
-				print("\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
-				      "); stuff VideoReader back to WaitingQueue.")
+				#print("\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
+				#      "); stuff VideoReader back to WaitingQueue.")
 				try:
 					self._queueForWaitingVideos.put(videoReader, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
 
 				except Full:
-					print("\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
-					      "); stuff VideoReader back to Data list.")
+					#print("\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
+					#      "); stuff VideoReader back to Data list.")
 					with self._lockForDataList:
 						self._listOfData.insert(0, videoReader)
 

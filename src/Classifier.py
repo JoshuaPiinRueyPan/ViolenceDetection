@@ -7,15 +7,14 @@ import settings.TrainSettings as trainSettings
 class Classifier:
 	def __init__(self):
 		self.inputImage = tf.placeholder(dataSettings.FLOAT_TYPE,
-						 [None, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS])
-		self.BATCH_SIZE = tf.placeholder(tf.int64)
-		self.UNROLLED_SIZE = tf.placeholder(tf.int64)
+						 shape=[trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE,
+							 dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS])
 		self.isTraining = tf.placeholder(tf.bool)
 		self.trainingStep = tf.placeholder(tf.int64)
-		self.groundTruth = tf.placeholder(dataSettings.FLOAT_TYPE, [None, outSettings.NUMBER_OF_CATEGORIES])
+		self.groundTruth = tf.placeholder(dataSettings.FLOAT_TYPE, shape=[trainSettings.BATCH_SIZE, trainSettings.UNROLLED_SIZE,
+										  dataSettings.NUMBER_OF_CATEGORIES])
 
-		self.net = netSettings.GetNetwork(self.inputImage, self.BATCH_SIZE, self.UNROLLED_SIZE,
-						  self.isTraining, self.trainingStep)
+		self.net = netSettings.GetNetwork(self.inputImage, self.isTraining, self.trainingStep)
 
 	def Build(self):
 		'''
@@ -24,9 +23,9 @@ class Classifier:
 			  predictions.shape: [batchSize, unrolledSize, NUMBER_OF_CATEGORIES]
 		'''
 		self.net.Build()
-		self._predictions = tf.nn.softmax(self.net.logits, axis=-1, name="tf.nn.softmax")
+		self._predictions = tf.nn.softmax(self.net.logitsOp, axis=-1, name="tf.nn.softmax")
 		with tf.name_scope("Loss"):
-			self._crossEntropyOp = tf.nn.softmax_cross_entropy_with_logits(	logits=self.net.logits,
+			self._crossEntropyOp = tf.nn.softmax_cross_entropy_with_logits(	logits=self.net.logitsOp,
 											labels=self.groundTruth,
 											dim=-1,
 											name="tf.nn.softmax_cross_entropy_with_logits")
@@ -41,6 +40,6 @@ class Classifier:
 
 	@property
 	def updateOp(self):
-		return self._net.updateOp
+		return self.net.updateOp
 
 

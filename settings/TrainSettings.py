@@ -1,7 +1,23 @@
 import tensorflow as tf
 import settings.DataSettings as dataSettings
 
-BATCH_SIZE = 3
+'''
+      Following two variables control the shape of input
+    data as the shape: [BATCH_SIZE*UNROLLED_SIZE, w, h, c].
+    BATCH_SIZE: number of Videos in a batch.
+    UNROLLED_SIZE: number of Frames in a Video.
+      For the ConvNet part, the input will be the shape:
+    [BATCH_SIZE*UNROLLED_SIZE, w, h, c].
+      For the RNN part, the input will be the shape:
+    [BATCH_SIZE, UNROLLED_SIZE, w, h, c] so that the
+    tf.nn.rnn_cell.dynamic_rnn() can unroll the RNN.
+
+    Note: Due to the fact that tf.TensorShape can't take
+    PlaceHolder as input, currently this project does
+    Not Support for dynamicly change the 'BATCH_SIZE' and
+    the 'UNROLLED_SIZE'.
+'''
+BATCH_SIZE = 4
 UNROLLED_SIZE = 40
 
 PRETRAIN_MODEL_PATH_NAME = ""
@@ -12,11 +28,10 @@ PRETRAIN_MODEL_PATH_NAME = ""
 '''
 NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 
-MAX_TRAINING_EPOCH = 50
+MAX_TRAINING_EPOCH = 100
 
 EPOCHS_TO_START_SAVE_MODEL = 20
-PATH_TO_SAVE_MODEL = "temp/models/DarkNet19/dataAug/32_leaky_train-2"
-#PATH_TO_SAVE_MODEL = "temp/models/DarkNet19/dataAug/biasAdd_13"
+PATH_TO_SAVE_MODEL = "temp/P1D19_1Fc_1LSTM-lr4"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
 
 def GetOptimizer(learningRate_):
@@ -38,20 +53,17 @@ def GetOptimizer(learningRate_):
 	3. _polynomialDecayLearningRate()
 '''
 def _stepLearningRate(currentEpoch_):
-	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (15, 1e-5), (40, 1e-6) ]
-	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-3), (20, 1e-4) ]
-	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-3), (30, 1e-4), (80, 1e-5) ]
-	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (30, 1e-5), (50, 1e-6) ]
+	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (100, 1e-5) ]
 
 	for eachPair in reversed(LIST_OF_EPOCH_LEARNING_RATE_PAIRS):
 		if currentEpoch_ >= eachPair[0]:
 			return eachPair[1]
 
 	# If nothing matched, return the first pair.learningRate as default
-	return trainSettings.LIST_OF_EPOCH_LEARNING_RATE_PAIRS[0][1] 
+	return LIST_OF_EPOCH_LEARNING_RATE_PAIRS[0][1] 
 
 
-def _exponentialDecayLearningRate(currentEpoch_):
+def _exponentialDecayLearningRate(currentStep_):
 	'''
 	    Exponential Decay:
 		learningRate = INITIAL_LEARNING_RATE * DECAY_RATE ^ (currentStep_ / DECAY_STEP)
@@ -68,7 +80,7 @@ def _exponentialDecayLearningRate(currentEpoch_):
 						  name='learningRate')
 	return learningRate
 
-def _polynomialDecayLearningRate(currentEpoch_):
+def _polynomialDecayLearningRate(currentStep_):
 	'''
 	    Polynomial Decay:
 		global_step = min(global_step, decay_steps)
@@ -86,7 +98,7 @@ def _polynomialDecayLearningRate(currentEpoch_):
 	return learningRate
 
 
-def GetLearningRate(currentStep_):
-	return _stepLearningRate(currentStep_)
+def GetLearningRate(currentEpoch_=None, currentStep_=None):
+	return _stepLearningRate(currentEpoch_)
 
 

@@ -1,22 +1,23 @@
-import TrainSettings as trainSettings
-from src.data.DataManager import TrainDataManager
+import tensorflow as tf
+import settings.TrainSettings as trainSettings
+import settings.DataSettings as dataSettings
+from src.data.DataManager import TrainDataManager, BatchData
+from src.AccuracyCalculator import *
 
 class Trainer:
 	def __init__(self, classifier_):
-		self._dataManager = TrainDataManager()
+		self._dataManager = TrainDataManager(dataSettings.PATH_TO_TRAIN_SET_CATELOG)
 		self._learningRatePlaceHolder = tf.placeholder(tf.float32, shape=[])
-		self._crossEntropyLossOp = classifier_.crossEntropyLossOp
-		self._updateNetOp = classifier_.updateOp
-		self._predictionsOp = classifier_.predictionsOp
+		self._classifier = classifier_
 		self._accuracyCalculator = VideosAccuracyCalculator()
 
 		try:
 			# If there's other losses (e.g. Regularization Loss)
 			otherLossOp = tf.losses.get_total_loss(add_regularization_losses=True)
-			totalLossOp = self.crossEntropyLoss + otherLossOp
+			totalLossOp = self._classifier.crossEntropyLossOp + otherLossOp
 		except:
 			# If there's no other loss op
-			totalLossOp = self.crossEntropyLoss
+			totalLossOp = self._classifier.crossEntropyLossOp
 
 		optimizer = trainSettings.GetOptimizer(self._learningRatePlaceHolder)
 		gradients = optimizer.compute_gradients(totalLossOp)
@@ -36,6 +37,10 @@ class Trainer:
 	def isNewEpoch(self):
 		return self._dataManager.isNewEpoch
 
+	@property
+	def dataLoaderInfo(self):
+		return self._dataManager.GetQueueInfo()
+
 	def PauseDataLoading(self):
 		self._dataManager.Pause()
 
@@ -46,70 +51,74 @@ class Trainer:
 		self._batchData = BatchData()
 		self._dataManager.AssignBatchData(self._batchData)
 
-	def Train(self, tf_session_, ):
-		_backPropergateNet(tf_session_)
-		_updateNet(tf_session_)
+	def Train(self, tf_session_):
+		self._backPropergateNet(tf_session_)
+		self._updateNet(tf_session_)
 
 
 	def _backPropergateNet(self, session_):
-		currentLearningRate = trainSettings.GetLearningRate(self._dataManager.epoch)
+		currentLearningRate = trainSettings.GetLearningRate(self._dataManager.epoch, self._dataManager.step)
 
-		inputFeedDict = { self.inputImage : self._batchData.batchOfImages,
-				  self.BATCH_SIZE : self._batchData.batchSize,
-				  self.UNROLLED_SIZE : self._batchData.unrolledSize,
-				  self.isTraining : True,
-				  self.trainingStep : 0,
-				  self.groundTruth : self._batchData.batchOfLabels }
+		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
+				  self._classifier.isTraining : True,
+				  self._classifier.trainingStep : self._dataManager.step,
+				  self._classifier.groundTruth : self._batchData.batchOfLabels,
+				  self._learningRatePlaceHolder : currentLearningRate }
+
 		'''
 		    For Training, do not use previous state.  Set the argument:
 		    'listOfPreviousStateValues_'=None to ensure using the zeros
 		    as LSTM state.
 		'''
-		cellStateFeedDict = self.classifier.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
+		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
 
-		session.run( [self._optimzeOp],
-		 	     feed_dict = inputFeedDict.update(cellStateFeedDict) )
+		inputFeedDict.update(cellStateFeedDict)
 
+		session_.run( [self._optimzeOp],
+		 	      feed_dict = inputFeedDict )
 
-	def _updateNet(self, session_, batchData_):
+	def _updateNet(self, session_):
 		'''
 		    Some Network has variables that need to be updated after training (e.g. the net with
 		    batch normalization).  After training, following code update such variables.
 		'''
-		inputFeedDict = { self.inputImage : self._batchData.batchOfImages,
-				  self.BATCH_SIZE : self._batchData.batchSize,
-				  self.UNROLLED_SIZE : self._batchData.unrolledSize,
-				  self.isTraining : False,
-				  self.trainingStep : 0,
-				  self.groundTruth : self._batchData.batchOfLabels }
-		cellStateFeedDict = self.classifier.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
+		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
+				  self._classifier.isTraining : False,
+				  self._classifier.trainingStep : self._dataManager.step,
+				  self._classifier.groundTruth : self._batchData.batchOfLabels }
+		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
 
-		session.run( [self._updateNetOp],
-		 	     feed_dict = inputFeedDict.update(cellStateFeedDict) )
+		inputFeedDict.update(cellStateFeedDict)
+
+		session_.run( [self._classifier.updateOp],
+		 	     feed_dict = inputFeedDict )
 
 
 
-	def EvaluateTrainLoss(self, session_, threshold=None):
+	def EvaluateTrainLoss(self, session_, threshold_=None):
 		'''
 		    Evaluate training loss, accuracy.
 		    Note: This function does not back propergate or change net weightings.
 		'''
-		inputFeedDict = { self.inputImage : self._batchData.batchOfImages,
-				  self.BATCH_SIZE : self._batchData.batchSize,
-				  self.UNROLLED_SIZE : self._batchData.unrolledSize,
-				  self.isTraining : False,
-				  self.trainingStep : 0,
-				  self.groundTruth : self._batchData.batchOfLabels }
-		cellStateFeedDict = self.classifier.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
+		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
+				  self._classifier.isTraining : False,
+				  self._classifier.trainingStep : self._dataManager.step,
+				  self._classifier.groundTruth : self._batchData.batchOfLabels }
+		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
 
-		batchLoss, predictions, _ = session.run( [self._lossOp, self._predictionsOp, self._summaryOp],
-			     				 feed_dict = inputFeedDict.update(cellStateFeedDict) )
+		inputFeedDict.update(cellStateFeedDict)
 
-		self._accuracyCalculator.AppendNetPredictions(predictions, self._batchData.arrayOfLabels)
+		batchLoss, predictions, summaryValue = session_.run( [self._classifier.crossEntropyLossOp,
+								      self._classifier.predictionsOp,
+								      self._summaryOp],
+			     					     feed_dict = inputFeedDict )
+		meanLoss = np.mean(batchLoss)
+
+		self._accuracyCalculator.AppendNetPredictions(predictions, self._batchData.batchOfLabels)
 
 		if threshold_ == None:
 			threshold, accuracy = self._accuracyCalculator.CalculateBestAccuracyAndThreshold(self.summaryWriter,
-													 currentEpoch_)
+													 self._dataManager.epoch)
 		else:
 			threshold = threshold_
 			accuracy = self._accuracyCalculator.CalculateAccuracyAtGivenThreshold(threshold_)
@@ -117,12 +126,12 @@ class Trainer:
 
 		summary = tf.Summary()
 		summary.ParseFromString(summaryValue)
-		summary.value.add(tag='loss', simple_value=batchLoss)
+		summary.value.add(tag='loss', simple_value=meanLoss)
 		summary.value.add(tag='accuracy', simple_value=accuracy)
 
 		self.summaryWriter.add_summary(summary, self._dataManager.epoch)
 
-		return batchLoss, threshold, accuracy
+		return meanLoss, threshold, accuracy
 
 
 	def _drawGradients(self, gradientsInfo_):

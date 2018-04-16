@@ -1,11 +1,13 @@
+from src.layers.LayerHelper import *
 import settings.LayerSettings as layerSettings
+import tensorflow as tf
 
 
-def LSTM(name_, inputTensor_, numberOfOutputs_, dropoutProb_=None, isTraining_):
+def LSTM(name_, inputTensor_, numberOfOutputs_, isTraining_, dropoutProb_=None):
 	with tf.name_scope(name_):
 		cell = tf.nn.rnn_cell.LSTMCell(num_units=numberOfOutputs_,
 						 use_peepholes=True,
-						 initializer=MSRA_INITIALIZER,
+						 initializer=layerSettings.LSTM_INITIALIZER,
 						 forget_bias=1.0,
 						 state_is_tuple=True,
 						 activation=tf.nn.tanh,

@@ -1,55 +1,79 @@
 #!/usr/bin/python3
 
+from src.Evaluator import *
 from src.Classifier import Classifier
 from src.Trainer import Trainer
+import settings.DataSettings as dataSettings
+import time
 
 class Main:
 	def __init__(self):
 		classifier = Classifier()
 		classifier.Build()
 
+		# Trainer, Evaluator
+		print("Reading Training set...")
 		self.trainer = Trainer(classifier)
+		print("\t Done.\n")
+		print("Reading Validation set...")
 		self.validationEvaluator = Evaluator("validation", dataSettings.PATH_TO_VAL_SET_CATELOG, classifier)
-		self.testEvaluator = Evaluator(dataSettings.PATH_TO_TEST_SET_CATELOG, classifier)
+		print("\t Done.\n")
+		print("Reading Test set...")
+		self.testEvaluator = Evaluator("test", dataSettings.PATH_TO_TEST_SET_CATELOG, classifier)
+		print("\t Done.\n")
 
+		# Summary
 		summaryOp = tf.summary.merge_all()
-
 		self.trainer.SetMergedSummaryOp(summaryOp)
 		self.validationEvaluator.SetMergedSummaryOp(summaryOp)
 		self.bestThreshold = None
 		self.testEvaluator.SetMergedSummaryOp(summaryOp)
 
+		# Time
+		self._startTrainEpochTime = time.time()
+		self._trainCountInOneEpoch = 0
+
+		# Saver
 		self.modelSaver = tf.train.Saver(max_to_keep=trainSettings.MAX_TRAINING_SAVE_MODEL)
 
+		# Session
 		self.session = tf.Session()
 		init = tf.global_variables_initializer()
 		self.session.run(init)
 
+	def __del__(self):
+		self.session.close()
+
 	def Run(self):
-		recoverFromPretrainModelIfRequired()
+		self.recoverFromPretrainModelIfRequired()
 
 		self.calculateValidationBeforeTraining()
+		self.resetTimeMeasureVariables()
 
 		while self.trainer.currentEpoch < trainSettings.MAX_TRAINING_EPOCH:
 			self.trainer.PrepareNewBatchData()
-			self.trainer.Train()
+			self.trainer.Train(self.session)
+			self._trainCountInOneEpoch += 1
 
 			if self.trainer.isNewEpoch:
 				print("Epoch: " + str(self.trainer.currentEpoch)+" ======================================")
 				self.trainer.PauseDataLoading()
 
-				self.calculateTrainingSetAndPrint(self.trainer.currentEpoch)
-				self.calculateValidationSetAndPrint(self.trainer.currentEpoch)
-				self.calculateTestSetAndPrint(self.trainer.currentEpoch)
+				self.printTimeMeasurement()
+				self.evaluateTrainingSetAndPrint()
+				self.evaluateValidationSetAndPrint(self.trainer.currentEpoch)
+				self.evaluateTestSetAndPrint(self.trainer.currentEpoch)
 
 				self.trainer.ContinueDataLoading()
+				self.resetTimeMeasureVariables()
 
 				if self.trainer.currentEpoch >= trainSettings.EPOCHS_TO_START_SAVE_MODEL:
-					self.saveCheckpoint(modelSaver, self.trainer.currentEpoch)
+					self.saveCheckpoint(self.trainer.currentEpoch)
 		print("Optimization finished!")
 
 
-	def recoverFromPretrainModelIfRequired():
+
+	def recoverFromPretrainModelIfRequired(self):
 		if trainSettings.PRETRAIN_MODEL_PATH_NAME != "":
 			print("Load Pretrain model from: " + trainSettings.PRETRAIN_MODEL_PATH_NAME)
 			listOfAllVariables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -59,44 +83,87 @@ class Main:
 			modelLoader = tf.train.Saver(variablesToBeRecovered)
 			modelLoader.restore(self.session, trainSettings.PRETRAIN_MODEL_PATH_NAME)
 
-	def calculateTrainingSetAndPrint():
-		meanLoss, threshold, accuracy = trainer.EvaluateTrainLoss(self.session, self.threshold)
-		print("\t train:")
-		if self.threshold == None:
-			print("\t\t loss: ", meanLoss. ",\t optimized frame threshold: ", threshold, ",\t accuracy: ", accuracy)
-		else:
-			print("\t\t loss: ", meanLoss. ",\t frame threshold: ", threshold, ",\t accuracy: ", accuracy)
+	def evaluateTrainingSetAndPrint(self):
+		startEvaluateTime = time.time()
+		loss, threshold, accuracy = self.trainer.EvaluateTrainLoss(self.session, self.bestThreshold)
+		endEvaluateTime = time.time()
 
-	def calculateValidationBeforeTraining():
-		print("Validation before Training  ======================================")
+		if self.bestThreshold == None:
+			self.printCalculationResults(jobType_='train', loss_=loss, isThresholdOptimized_=True,
+						     threshold_=threshold, accuracy_=accuracy,
+						     duration_=(endEvaluateTime-startEvaluateTime) )
+		else:
+			self.printCalculationResults(jobType_='train', loss_=loss, isThresholdOptimized_=False,
+						     threshold_=threshold, accuracy_=accuracy,
+						     duration_=(endEvaluateTime-startEvaluateTime) )
+
+	def calculateValidationBeforeTraining(self):
 		if trainSettings.PRETRAIN_MODEL_PATH_NAME != "":
+			print("Validation before Training  ======================================")
 			self.calculateValidationAndPrint(currentEpoch_=0)
 
-	def calculateValidationSetAndPrint(currentEpoch_):
-		meanLoss, threshold, accuracy = self.validationEvaluator.Evaluate(self.session,
+	def evaluateValidationSetAndPrint(self, currentEpoch_):
+		startEvaluateTime = time.time()
+		loss, threshold, accuracy = self.validationEvaluator.Evaluate(self.session,
 										  currentEpoch_=currentEpoch_,
 										  threshold_=None)
+		endEvaluateTime = time.time()
+
 		self.bestThreshold = threshold
-		print("\t validation")
-		print("\t\t loss: ", meanLoss. ",\t optimized frame threshold: ", threshold, ",\t accuracy: ", accuracy)
+		self.printCalculationResults(jobType_='validation', loss_=loss, isThresholdOptimized_=True,
+					     threshold_=threshold, accuracy_=accuracy,
+					     duration_=(endEvaluateTime-startEvaluateTime) )
 
+	def evaluateTestSetAndPrint(self, currentEpoch_):
+		if (currentEpoch_!=0)and(currentEpoch_ % 10) == 0:
+			startEvaluateTime = time.time()
+			loss, threshold, accuracy = testEvaluator.Evaluate(self.session,
+									   currentEpoch_=currentEpoch_,
+									   threshold_=None)
+			endEvaluateTime = time.time()
 
-	def calculateTestSetAndPrint(currentEpoch_):
-		if (currentEpoch_ % 10) == 0:
-			meanLoss, threshold, accuracy = testEvaluator.Evaluate(self.session,
-									       currentEpoch_=currentEpoch_,
-									       threshold_=None)
-			print("\t test")
-			print("\t\t loss: ", meanLoss. ",\t optimized frame threshold: ", threshold, ",\t accuracy: ", accuracy)
+			self.printCalculationResults(jobType_='test', loss_=loss, isThresholdOptimized_=True,
+						     threshold_=threshold, accuracy_=accuracy,
+						     duration_=(endEvaluateTime-startEvaluateTime) )
 
 		else:
-			meanLoss, _, accuracy = testEvaluator.Evaluate(	self.session,
-									currentEpoch_=currentEpoch_,
-									threshold_=self.bestThreshold)
-			print("\t test")
-			print("\t\t loss: ", meanLoss. ",\t frame threshold: ", threshold, ",\t accuracy: ", accuracy)
+			startEvaluateTime = time.time()
+			loss, _, accuracy = testEvaluator.Evaluate(self.session,
+								   currentEpoch_=currentEpoch_,
+								   threshold_=self.bestThreshold)
+			endEvaluateTime = time.time()
 
-	def saveCheckpoint(currentEpoch_):
+			self.printCalculationResults(jobType_='test', loss_=loss, isThresholdOptimized_=False,
+						     threshold_=self.bestThreshold, accuracy_=accuracy,
+						     duration_=(endEvaluateTime-startEvaluateTime) )
+
+	def printTimeMeasurement(self):
+		timeForTrainOneEpoch = time.time() - self._startTrainEpochTime
+		print("\t Back Propergation time measurement:")
+		print("\t\t duration: ", timeForTrainOneEpoch, "s/epoch")
+		averagedTrainTime = timeForTrainOneEpoch / self._trainCountInOneEpoch
+		print("\t\t average: ", averagedTrainTime, "s/batch")
+		print()
+
+		queueInfo = self.trainer.dataLoaderInfo
+		print("\t Training Queue info:")
+		print("\t\t" + queueInfo + "\n")
+	
+	def resetTimeMeasureVariables(self):
+		self._startTrainEpochTime = time.time()
+		self._trainCountInOneEpoch = 0
+
+	def printCalculationResults(self, jobType_, loss_, isThresholdOptimized_, threshold_, accuracy_, duration_):
+		print("\t "+jobType_+":")
+		if isThresholdOptimized_:
+			print("\t\t loss: ", loss_, ",\t optimized frame threshold: ", threshold_,
+				",\t accuracy: ", accuracy_, ",\t duration: ", duration_)
+		else:
+			print("\t\t loss: ", loss_, ",\t frame threshold: ", threshold_,
+				",\t accuracy: ", accuracy_, ",\t duration: ", duration_)
+
+
+	def saveCheckpoint(self, currentEpoch_):
 		pathToSaveCheckpoint = os.path.join(trainSettings.PATH_TO_SAVE_MODEL, "save_epoch_" + str(currentEpoch_) )
 		checkpointPathFileName = os.path.join(pathToSaveCheckpoint, "ViolenceNet.ckpt")
 		self.modelSaver.save(self.session, checkpointPathFileName)
