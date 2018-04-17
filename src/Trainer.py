@@ -24,10 +24,17 @@ class Trainer:
 		self._drawGradients(gradients)
 		self._optimzeOp = optimizer.apply_gradients(gradients)
 
-		self.summaryWriter = tf.summary.FileWriter(trainSettings.PATH_TO_SAVE_MODEL+"/train")
+		self._summaryWriter = tf.summary.FileWriter(trainSettings.PATH_TO_SAVE_MODEL+"/train")
+
+	def __del__(self):
+		print("Stop TrainDataManager")
+		self._dataManager.Stop()
 
 	def SetMergedSummaryOp(self, allSummariesOp_):
 		self._summaryOp = allSummariesOp_
+
+	def SetGraph(self, graph_):
+		self._summaryWriter.add_graph(graph_)
 
 	@property
 	def currentEpoch(self):
@@ -55,6 +62,11 @@ class Trainer:
 		self._backPropergateNet(tf_session_)
 		self._updateNet(tf_session_)
 
+		if self._dataManager.isNewEpoch:
+			summary = tf.Summary()
+			summary.value.add(tag='LearningRate', simple_value=currentLearningRate)
+			self._summaryWriter.add_summary(summary, self._dataManager.epoch)
+
 
 	def _backPropergateNet(self, session_):
 		currentLearningRate = trainSettings.GetLearningRate(self._dataManager.epoch, self._dataManager.step)
@@ -78,7 +90,6 @@ class Trainer:
 
 		session_.run( [self._optimzeOp],
 		 	      feed_dict = inputFeedDict )
-
 	def _updateNet(self, session_):
 		'''
 		    Some Network has variables that need to be updated after training (e.g. the net with
@@ -123,7 +134,7 @@ class Trainer:
 		self._accuracyCalculator.AppendNetPredictions(predictions, self._batchData.batchOfLabels)
 
 		if threshold_ == None:
-			threshold, accuracy = self._accuracyCalculator.CalculateBestAccuracyAndThreshold(self.summaryWriter,
+			threshold, accuracy = self._accuracyCalculator.CalculateBestAccuracyAndThreshold(self._summaryWriter,
 													 self._dataManager.epoch)
 		else:
 			threshold = threshold_
@@ -135,7 +146,7 @@ class Trainer:
 		summary.value.add(tag='loss', simple_value=meanLoss)
 		summary.value.add(tag='accuracy', simple_value=accuracy)
 
-		self.summaryWriter.add_summary(summary, self._dataManager.epoch)
+		self._summaryWriter.add_summary(summary, self._dataManager.epoch)
 
 		return meanLoss, threshold, accuracy
 

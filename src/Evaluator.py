@@ -21,9 +21,16 @@ class Evaluator:
 
 		self._bestThreshold = -1
 
+	def __del__(self):
+		print("Stop EvaluationDataManager")
+		self._dataManager.Stop()
+
 
 	def SetMergedSummaryOp(self, allSummariesOp_):
 		self._summaryOp = allSummariesOp_
+
+	def SetGraph(self, graph_):
+		self._summaryWriter.add_graph(graph_)
 
 	def Evaluate(self, tf_session_, currentEpoch_, threshold_=None):
 		self._dataManager.Continue()

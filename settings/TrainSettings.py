@@ -11,11 +11,8 @@ import settings.DataSettings as dataSettings
       For the RNN part, the input will be the shape:
     [BATCH_SIZE, UNROLLED_SIZE, w, h, c] so that the
     tf.nn.rnn_cell.dynamic_rnn() can unroll the RNN.
-
-    Note: Due to the fact that tf.TensorShape can't take
-    PlaceHolder as input, currently this project does
-    Not Support for dynamicly change the 'BATCH_SIZE' and
-    the 'UNROLLED_SIZE'.
+      The output of the total network will be the shape:
+    [BATCH_SIZE, UNROLLED_SIZE, NUMBER_OF_CATEGORIES]
 '''
 BATCH_SIZE = 4
 UNROLLED_SIZE = 40
@@ -31,19 +28,10 @@ NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 MAX_TRAINING_EPOCH = 10
 
 EPOCHS_TO_START_SAVE_MODEL = 1
-PATH_TO_SAVE_MODEL = "temp/P1D19_1Fc_1LSTM-lr4"
+PATH_TO_SAVE_MODEL = "temp/P1D19_1Fc_1LSTM-lr4-train2"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
 
 def GetOptimizer(learningRate_):
-	'''
-	RMSPROP_DECAY = 0.9                # Decay term for RMSProp.
-	RMSPROP_MOMENTUM = 0.9             # Momentum in RMSProp.
-	RMSPROP_EPSILON = 1.0              # Epsilon term for RMSProp.
-	return tf.train.RMSPropOptimizer(lr,
-					 RMSPROP_DECAY,
-					 momentum=RMSPROP_MOMENTUM,
-					 epsilon=RMSPROP_EPSILON)
-	'''
 	return tf.train.AdamOptimizer(learning_rate=learningRate_)
 
 '''
@@ -53,7 +41,7 @@ def GetOptimizer(learningRate_):
 	3. _polynomialDecayLearningRate()
 '''
 def _stepLearningRate(currentEpoch_):
-	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (1, 1e-5) ]
+	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
 
 	for eachPair in reversed(LIST_OF_EPOCH_LEARNING_RATE_PAIRS):
 		if currentEpoch_ >= eachPair[0]:

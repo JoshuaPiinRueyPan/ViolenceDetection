@@ -1,8 +1,11 @@
+#!/usr/bin/python3
+
 from src.data.DataManager import *
 import settings.DataSettings as dataSettings
 import cv2
 import numpy as np
 import time
+import src.data.ImageUtils as ImageUtils
 
 #PATH_TO_DATA = 'src/data/unit_test/videos.txt'
 PATH_TO_DATA = 'data/train.txt'
@@ -28,11 +31,6 @@ def DrawInfo(targetImage_, listOfInfoToDisplay):
 				thickness=1,
 				lineType=cv2.LINE_AA)
 	return targetImage_
-
-def convertNetInputToCV_Format(netInputImage_):
-	cvImage = (netInputImage_ + 1.0) * (255.0/2.)
-	cvImage = cv2.cvtColor(cvImage.astype(np.uint8), cv2.COLOR_RGB2BGR)
-	return cvImage
 
 def Check_TrainDataManager():
 	pauseLoadData = False
@@ -68,7 +66,7 @@ def Check_TrainDataManager():
 		i = 0
 		while i < batchData.batchOfImages.shape[0]:
 			currentImage = batchData.batchOfImages[i]
-			currentImage = convertNetInputToCV_Format(currentImage)
+			currentImage = ImageUtils.ConvertImageFrom_NetInput_to_CV(currentImage)
 			currentImage = cv2.resize(currentImage, (500, 500))
 			currentLabel = batchData.batchOfLabels[i]
 
@@ -126,12 +124,21 @@ def Check_EvalDataManager():
 		finishGetBatchTime = time.time()
 		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime, "\n")
 
+		batchData.batchOfImages = batchData.batchOfImages.reshape([batchData.batchSize * batchData.unrolledSize,
+									   dataSettings.IMAGE_SIZE,
+									   dataSettings.IMAGE_SIZE,
+									   dataSettings.IMAGE_CHANNELS])
+		batchData.batchOfLabels = batchData.batchOfLabels.reshape([batchData.batchSize * batchData.unrolledSize,
+									   dataSettings.NUMBER_OF_CATEGORIES])
+
+
+
 		info = dataManager.GetQueueInfo()
 		print("\t" + info + "\n")
 		i = 0
 		while i < batchData.batchOfImages.shape[0]:
 			currentImage = batchData.batchOfImages[i]
-			currentImage = convertNetInputToCV_Format(currentImage)
+			currentImage = ImageUtils.ConvertImageFrom_NetInput_to_CV(currentImage)
 			currentImage = cv2.resize(currentImage, (500, 500))
 			currentLabel = batchData.batchOfLabels[i]
 
@@ -165,7 +172,7 @@ def Check_EvalDataManager():
 
 
 if __name__ == '__main__':
-	userSelectedMode = int( input("Which DataManager do you want to test? (0:train / 1:eval)") )
+	userSelectedMode = int( input("Which DataManager do you want to test? (0:train / 1:eval)  ") )
 	if userSelectedMode == 0:
 		Check_TrainDataManager()
 

@@ -41,6 +41,9 @@ class Main:
 		init = tf.global_variables_initializer()
 		self.session.run(init)
 
+		self.trainer.SetGraph(self.session.graph)
+		self.validationEvaluator.SetGraph(self.session.graph)
+
 	def __del__(self):
 		self.session.close()
 
@@ -50,6 +53,7 @@ class Main:
 		self.calculateValidationBeforeTraining()
 		self.resetTimeMeasureVariables()
 
+		print("Path to save mode: ", trainSettings.PATH_TO_SAVE_MODEL)
 		print("\nStart Training...\n")
 
 		while self.trainer.currentEpoch < trainSettings.MAX_TRAINING_EPOCH:
@@ -62,25 +66,10 @@ class Main:
 					+ "======================================"
 					+ "======================================")
 
-				'''
-				      For the case that the training is just started for a while,
-				    the DataLoader of TrainingSet does not loaded to its limit.
-				    Therefore, keep loading while evaluate the validation & test
-				    set.
-				      For epoch > 1, the DataLoader of TrainingSet may be loaded
-				    to its max capacity.  Pause loading while evaluate the
-				    validation & test set.
-				'''
-				if self.trainer.currentEpoch > 1:
-					self.trainer.PauseDataLoading()
-
 				self.printTimeMeasurement()
 				self.evaluateTrainingSetAndPrint()
 				self.evaluateValidationSetAndPrint(self.trainer.currentEpoch)
 				self.evaluateTestSetAndPrint(self.trainer.currentEpoch)
-
-				if self.trainer.currentEpoch > 1:
-					self.trainer.ContinueDataLoading()
 
 				self.resetTimeMeasureVariables()
 
@@ -134,7 +123,7 @@ class Main:
 					     duration_=(endEvaluateTime-startEvaluateTime) )
 
 	def evaluateTestSetAndPrint(self, currentEpoch_):
-		if (currentEpoch_!=0)and(currentEpoch_ % 10) == 0:
+		if (currentEpoch_!=0)and(currentEpoch_ % 3) == 0:
 			startEvaluateTime = time.time()
 			loss, threshold, accuracy = self.testEvaluator.Evaluate(self.session,
 									   currentEpoch_=currentEpoch_,
@@ -177,8 +166,8 @@ class Main:
 		print("\t "+jobType_+":")
 		if isThresholdOptimized_:
 			print("\t\t loss: ", "{0:.8f}".format(loss_),
-				",\t optimized frame threshold: ", threshold_,
-				",\t accuracy: ", "{0:.8f}".format(accuracy_),
+				",\t best frame threshold: ", threshold_,
+				",\t\t accuracy: ", "{0:.8f}".format(accuracy_),
 				",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
 		else:
 			print("\t\t loss: ", "{0:.8f}".format(loss_),

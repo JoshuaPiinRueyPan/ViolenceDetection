@@ -1,6 +1,6 @@
 import skvideo.io
 import numpy as np
-import src.data.ImageUtils as imageUtil
+import src.data.ImageUtils as ImageUtils
 import settings.DataSettings as dataSettings
 import cv2
 
@@ -80,7 +80,12 @@ class VideoData:
 				self.totalFrames = numberOfLoadedImages
 				self._calculateLabels()
 
-			self._images = self._convertRawImageToNetInput(rgbImages)
+			self._images = np.zeros([numberOfLoadedImages,
+						 dataSettings.IMAGE_SIZE,
+						 dataSettings.IMAGE_SIZE,
+						 dataSettings.IMAGE_CHANNELS])
+			for i in range(numberOfLoadedImages):
+				self._images[i] = ImageUtils.ConvertImageFrom_RGB255_to_NetInput(rgbImages[i])
 
 			self.hasImages = True
 
@@ -94,14 +99,4 @@ class VideoData:
 
 	def ReleaseImages(self):
 		self._images = None
-
-	def _convertRawImageToNetInput(self, rgbImages_):
-		numberOfImages = rgbImages_.shape[0]
-		enlargedImages = np.zeros([numberOfImages, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, 3])
-		for i in range(numberOfImages):
-			enlargedImages[i] = imageUtil.ResizeAndPad(rgbImages_[i], (dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE) )
-
-		netInputImages = (enlargedImages/255.0) * 2.0 - 1.0
-		return netInputImages.astype(np.float16)
-	
 

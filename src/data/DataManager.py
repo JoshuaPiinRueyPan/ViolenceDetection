@@ -210,6 +210,13 @@ class TrainDataManager(DataManagerBase):
 		self._isNewEpoch = True
 		self._dataCursor = 0
 
+		if len(self._listOfData) < (NUMBER_OF_LOAD_DATA_THREADS*trainSettings.BATCH_SIZE):
+			errorMessage = "(NumberOfTrainingData) < (NumberOfLoadDataThreds*BatchSize)!\n"
+			errorMessage += "This will cause DeadLock, since each loading thread can't get "
+			errorMessage += "all batch data.\n"
+			errorMessage += "Reduce the NUMBER_OF_LOAD_DATA_THREADS, or get More data!"
+			raise ValueError(errorMessage)
+
 		self.pushVideoDataToWaitingQueue(dataSettings.DATA_QUEUE_MAX_SIZE*2)
 
 		self._executeLoadDataThreads(NUMBER_OF_LOAD_DATA_THREADS)
@@ -298,18 +305,18 @@ class TrainDataManager(DataManagerBase):
 				self.appendVideoDataBackToDataList(listOfLoadedVideos)
 
 			except Full:
-				#print("\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
-				#      ");  put VideoReader back to WaitingQueue")
+				print("\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
+				      ");  put VideoReader back to WaitingQueue")
 				try:
 					while len(listOfLoadedVideos) > 0:
 						eachVideoReader = listOfLoadedVideos.pop(0)
 						self._queueForWaitingVideos.put(eachVideoReader, block=True,
 										timeout=TIMEOUT_FOR_WAIT_QUEUE)
-						#print("\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
-						#      ")...")
+						print("\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
+						      ")...")
 				except Full:
-					#print("\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
-					#      "); put VideoReader back to data list")
+					print("\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
+					      "); put VideoReader back to data list")
 					listOfLoadedVideos.insert(0, eachVideoReader)
 					with self._lockForDataList:
 						self._listOfData = listOfLoadedVideos + self._listOfData
@@ -421,14 +428,14 @@ class EvaluationDataManager(DataManagerBase):
 
 			except:
 				videoReader.ReleaseImages()
-				#print("\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
-				#      "); stuff VideoReader back to WaitingQueue.")
+				print("\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
+				      "); stuff VideoReader back to WaitingQueue.")
 				try:
 					self._queueForWaitingVideos.put(videoReader, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
 
 				except Full:
-					#print("\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
-					#      "); stuff VideoReader back to Data list.")
+					print("\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
+					      "); stuff VideoReader back to Data list.")
 					with self._lockForDataList:
 						self._listOfData.insert(0, videoReader)
 

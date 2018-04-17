@@ -1,5 +1,24 @@
 import cv2
 import numpy as np
+import settings.DataSettings as dataSettings
+
+
+def ConvertImageFrom_RGB255_to_NetInput(rgbImage_):
+	enlargedImage = ResizeAndPad(rgbImage_, (dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE) )
+	netInputImage = (enlargedImage/255.0) * 2.0 - 1.0
+	return netInputImage.astype(dataSettings.FLOAT_TYPE)
+
+def ConvertImageFrom_CV_to_NetInput(bgrImage_):
+	rgbImage = cv2.cvtColor(bgrImage_, cv2.COLOR_BGR2RGB)
+	netInputImage = ConvertImageFrom_RGB255_to_NetInput(rgbImage)
+	
+	return netInputImage
+
+def ConvertImageFrom_NetInput_to_CV(netInputImage_):
+	cvImage = (netInputImage_ + 1.0) * (255.0/2.)
+	cvImage = cv2.cvtColor(cvImage.astype(np.uint8), cv2.COLOR_RGB2BGR)
+	return cvImage
+
 
 def ResizeAndPad(img, targetSize_, padColor=0):
 	'''
