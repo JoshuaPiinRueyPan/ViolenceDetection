@@ -50,26 +50,43 @@ class Main:
 		self.calculateValidationBeforeTraining()
 		self.resetTimeMeasureVariables()
 
+		print("\nStart Training...\n")
+
 		while self.trainer.currentEpoch < trainSettings.MAX_TRAINING_EPOCH:
 			self.trainer.PrepareNewBatchData()
 			self.trainer.Train(self.session)
 			self._trainCountInOneEpoch += 1
 
 			if self.trainer.isNewEpoch:
-				print("Epoch: " + str(self.trainer.currentEpoch)+" ======================================")
-				self.trainer.PauseDataLoading()
+				print("Epoch:", self.trainer.currentEpoch, "======================================"
+					+ "======================================"
+					+ "======================================")
+
+				'''
+				      For the case that the training is just started for a while,
+				    the DataLoader of TrainingSet does not loaded to its limit.
+				    Therefore, keep loading while evaluate the validation & test
+				    set.
+				      For epoch > 1, the DataLoader of TrainingSet may be loaded
+				    to its max capacity.  Pause loading while evaluate the
+				    validation & test set.
+				'''
+				if self.trainer.currentEpoch > 1:
+					self.trainer.PauseDataLoading()
 
 				self.printTimeMeasurement()
 				self.evaluateTrainingSetAndPrint()
 				self.evaluateValidationSetAndPrint(self.trainer.currentEpoch)
 				self.evaluateTestSetAndPrint(self.trainer.currentEpoch)
 
-				self.trainer.ContinueDataLoading()
+				if self.trainer.currentEpoch > 1:
+					self.trainer.ContinueDataLoading()
+
 				self.resetTimeMeasureVariables()
 
 				if self.trainer.currentEpoch >= trainSettings.EPOCHS_TO_START_SAVE_MODEL:
 					self.saveCheckpoint(self.trainer.currentEpoch)
-		print("Optimization finished!")
+		print("Optimization finished.")
 
 
 
@@ -99,7 +116,9 @@ class Main:
 
 	def calculateValidationBeforeTraining(self):
 		if trainSettings.PRETRAIN_MODEL_PATH_NAME != "":
-			print("Validation before Training  ======================================")
+			print("Validation before Training ", "======================================"
+					+ "======================================"
+					+ "======================================")
 			self.calculateValidationAndPrint(currentEpoch_=0)
 
 	def evaluateValidationSetAndPrint(self, currentEpoch_):
@@ -117,7 +136,7 @@ class Main:
 	def evaluateTestSetAndPrint(self, currentEpoch_):
 		if (currentEpoch_!=0)and(currentEpoch_ % 10) == 0:
 			startEvaluateTime = time.time()
-			loss, threshold, accuracy = testEvaluator.Evaluate(self.session,
+			loss, threshold, accuracy = self.testEvaluator.Evaluate(self.session,
 									   currentEpoch_=currentEpoch_,
 									   threshold_=None)
 			endEvaluateTime = time.time()
@@ -128,21 +147,21 @@ class Main:
 
 		else:
 			startEvaluateTime = time.time()
-			loss, _, accuracy = testEvaluator.Evaluate(self.session,
+			loss, threshold, accuracy = self.testEvaluator.Evaluate(self.session,
 								   currentEpoch_=currentEpoch_,
 								   threshold_=self.bestThreshold)
 			endEvaluateTime = time.time()
 
 			self.printCalculationResults(jobType_='test', loss_=loss, isThresholdOptimized_=False,
-						     threshold_=self.bestThreshold, accuracy_=accuracy,
+						     threshold_=threshold, accuracy_=accuracy,
 						     duration_=(endEvaluateTime-startEvaluateTime) )
 
 	def printTimeMeasurement(self):
 		timeForTrainOneEpoch = time.time() - self._startTrainEpochTime
 		print("\t Back Propergation time measurement:")
-		print("\t\t duration: ", timeForTrainOneEpoch, "s/epoch")
+		print("\t\t duration: ", "{0:.4f}".format(timeForTrainOneEpoch), "s/epoch")
 		averagedTrainTime = timeForTrainOneEpoch / self._trainCountInOneEpoch
-		print("\t\t average: ", averagedTrainTime, "s/batch")
+		print("\t\t average: ", "{0:.4f}".format(averagedTrainTime), "s/batch")
 		print()
 
 		queueInfo = self.trainer.dataLoaderInfo
@@ -154,13 +173,18 @@ class Main:
 		self._trainCountInOneEpoch = 0
 
 	def printCalculationResults(self, jobType_, loss_, isThresholdOptimized_, threshold_, accuracy_, duration_):
+		floatPrecision = "{0:.8f}"
 		print("\t "+jobType_+":")
 		if isThresholdOptimized_:
-			print("\t\t loss: ", loss_, ",\t optimized frame threshold: ", threshold_,
-				",\t accuracy: ", accuracy_, ",\t duration: ", duration_)
+			print("\t\t loss: ", "{0:.8f}".format(loss_),
+				",\t optimized frame threshold: ", threshold_,
+				",\t accuracy: ", "{0:.8f}".format(accuracy_),
+				",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
 		else:
-			print("\t\t loss: ", loss_, ",\t frame threshold: ", threshold_,
-				",\t accuracy: ", accuracy_, ",\t duration: ", duration_)
+			print("\t\t loss: ", "{0:.8f}".format(loss_),
+				",\t frame threshold: ", threshold_,
+				",\t accuracy: ", "{0:.8f}".format(accuracy_),
+				",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
 
 
 	def saveCheckpoint(self, currentEpoch_):

@@ -127,7 +127,7 @@ class Trainer:
 													 self._dataManager.epoch)
 		else:
 			threshold = threshold_
-			accuracy = self._accuracyCalculator.CalculateAccuracyAtGivenThreshold(threshold_)
+			accuracy, _, _ = self._accuracyCalculator.CalculateAccuracyAtGivenThreshold(threshold_)
 
 
 		summary = tf.Summary()

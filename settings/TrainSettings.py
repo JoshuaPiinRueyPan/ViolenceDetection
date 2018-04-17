@@ -28,9 +28,9 @@ PRETRAIN_MODEL_PATH_NAME = ""
 '''
 NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 
-MAX_TRAINING_EPOCH = 100
+MAX_TRAINING_EPOCH = 10
 
-EPOCHS_TO_START_SAVE_MODEL = 20
+EPOCHS_TO_START_SAVE_MODEL = 1
 PATH_TO_SAVE_MODEL = "temp/P1D19_1Fc_1LSTM-lr4"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
 
@@ -53,7 +53,7 @@ def GetOptimizer(learningRate_):
 	3. _polynomialDecayLearningRate()
 '''
 def _stepLearningRate(currentEpoch_):
-	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (100, 1e-5) ]
+	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (1, 1e-5) ]
 
 	for eachPair in reversed(LIST_OF_EPOCH_LEARNING_RATE_PAIRS):
 		if currentEpoch_ >= eachPair[0]:

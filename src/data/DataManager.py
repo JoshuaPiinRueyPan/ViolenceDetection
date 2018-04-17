@@ -333,13 +333,14 @@ class EvaluationDataManager(DataManagerBase):
 			valDataSet = EvaluationDataManager("./val.txt")
 
 			valLoss = 0
-			while not valDataSet.isAllDataTraversed:
+			while True:
 				valLoss += net.CalculateLoss(valDataSet.AssignBatchData())
 				if valDataSet.isNewVideo:
 					net.ResetCellState()
 
 				if valDataSet.isAllDataTraversed:
 					valDataSet.Pause()
+					break
 	'''
 	def __init__(self, PATH_TO_DATA_SET_CATELOG_, NUMBER_OF_LOAD_DATA_THREADS=1):
 		super().__init__(PATH_TO_DATA_SET_CATELOG_)

@@ -61,7 +61,7 @@ class VideosAccuracyCalculator:
 	def CalculateBestAccuracyAndThreshold(self, tf_summaryWriter_=None, currentEpoch_=None):
 		MIN_UNROLLS_OF_VIDEOS = self._getMinimumUnrollsInVideos()+1
 		bestThreshold = -1
-		bestAccuracy = 0
+		bestAccuracy = 0.0
 		for currentThreshold in range(1, MIN_UNROLLS_OF_VIDEOS):
 			currentAccuracy, currentPrecision, currentRecall = self.CalculateAccuracyAtGivenThreshold(currentThreshold)
 
