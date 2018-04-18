@@ -72,6 +72,10 @@ class Evaluator:
 
 		return meanLoss, threshold, accuracy
 
+	def Release(self):
+		print("Evaluator.Release()")
+		self._dataManager.Stop()
+		
 
 	def _calculateValidationForSingleBatch(self, session):
 		batchData = BatchData()

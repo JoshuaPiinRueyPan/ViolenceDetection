@@ -45,6 +45,7 @@ class Main:
 		self.validationEvaluator.SetGraph(self.session.graph)
 
 	def __del__(self):
+		print("In Train.py destructor")
 		self.session.close()
 
 	def Run(self):
@@ -67,8 +68,8 @@ class Main:
 					+ "======================================")
 
 				self.printTimeMeasurement()
-				self.evaluateTrainingSetAndPrint()
 				self.evaluateValidationSetAndPrint(self.trainer.currentEpoch)
+				self.evaluateTrainingSetAndPrint()
 				self.evaluateTestSetAndPrint(self.trainer.currentEpoch)
 
 				self.resetTimeMeasureVariables()
@@ -76,6 +77,9 @@ class Main:
 				if self.trainer.currentEpoch >= trainSettings.EPOCHS_TO_START_SAVE_MODEL:
 					self.saveCheckpoint(self.trainer.currentEpoch)
 		print("Optimization finished.")
+		self.trainer.Release()
+		self.validationEvaluator.Release()
+		self.testEvaluator.Release()
 
 
 
@@ -153,10 +157,6 @@ class Main:
 		print("\t\t average: ", "{0:.4f}".format(averagedTrainTime), "s/batch")
 		print()
 
-		queueInfo = self.trainer.dataLoaderInfo
-		print("\t Training Queue info:")
-		print("\t\t" + queueInfo + "\n")
-	
 	def resetTimeMeasureVariables(self):
 		self._startTrainEpochTime = time.time()
 		self._trainCountInOneEpoch = 0
@@ -167,12 +167,12 @@ class Main:
 		if isThresholdOptimized_:
 			print("\t\t loss: ", "{0:.8f}".format(loss_),
 				",\t best frame threshold: ", threshold_,
-				",\t\t accuracy: ", "{0:.8f}".format(accuracy_),
+				",\t accuracy: ", "{0:.8f}".format(accuracy_),
 				",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
 		else:
 			print("\t\t loss: ", "{0:.8f}".format(loss_),
 				",\t frame threshold: ", threshold_,
-				",\t accuracy: ", "{0:.8f}".format(accuracy_),
+				",\t\t accuracy: ", "{0:.8f}".format(accuracy_),
 				",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
 
 

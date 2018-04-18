@@ -3,6 +3,8 @@
 import os
 import sys
 import cv2
+import numpy as np
+import time
 from src.ViolenceDetector import *
 import settings.DeploySettings as deploySettings
 import settings.DataSettings as dataSettings
@@ -36,11 +38,15 @@ def DetectViolence(PATH_FILE_NAME_OF_SOURCE_VIDEO, PATH_FILE_NAME_TO_SAVE_RESULT
 	if shouldSaveResult:
 		videoSavor = VideoSavor(PATH_FILE_NAME_TO_SAVE_RESULT + "_Result", videoReader)
 
+	listOfForwardTime = []
 	isCurrentFrameValid, currentImage = videoReader.read()
 	while isCurrentFrameValid:
 		netInput = ImageUtils.ConvertImageFrom_CV_to_NetInput(currentImage)
 
+		startDetectTime = time.time()
 		isFighting = violenceDetector.Detect(netInput)
+		endDetectTime = time.time()
+		listOfForwardTime.append(endDetectTime - startDetectTime)
 
 		targetSize = deploySettings.DISPLAY_IMAGE_SIZE - 2*deploySettings.BORDER_SIZE
 		currentImage = cv2.resize(currentImage, (targetSize, targetSize))
@@ -76,6 +82,9 @@ def DetectViolence(PATH_FILE_NAME_OF_SOURCE_VIDEO, PATH_FILE_NAME_TO_SAVE_RESULT
 		else:
 			isCurrentFrameValid, currentImage = videoReader.read()
 
+	averagedForwardTime = np.mean(listOfForwardTime)
+	print("Averaged Forward Time: ", averagedForwardTime)
+	
 
 
 if __name__ == '__main__':

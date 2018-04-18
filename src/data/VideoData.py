@@ -66,7 +66,7 @@ class VideoData:
 					 + "\t Note: You can call VideoData.hasLabel, "
 					 + "to check if the video has ground truth.")
 
-	def LoadVideoImages(self):
+	def LoadVideoImages(self, dataAugmentFunction_=None):
 		'''
 		    This function will Block the current thread utill the images are loaded.
 		'''
@@ -79,6 +79,9 @@ class VideoData:
 				print("\t This may due to the inconsistence of OpenCV & Sk-Video...")
 				self.totalFrames = numberOfLoadedImages
 				self._calculateLabels()
+
+			if dataAugmentFunction_ != None:
+				rgbImages = dataAugmentFunction_(rgbImages)
 
 			self._images = np.zeros([numberOfLoadedImages,
 						 dataSettings.IMAGE_SIZE,

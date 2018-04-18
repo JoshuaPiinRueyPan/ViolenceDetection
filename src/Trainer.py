@@ -62,11 +62,9 @@ class Trainer:
 		self._backPropergateNet(tf_session_)
 		self._updateNet(tf_session_)
 
-		if self._dataManager.isNewEpoch:
-			summary = tf.Summary()
-			summary.value.add(tag='LearningRate', simple_value=currentLearningRate)
-			self._summaryWriter.add_summary(summary, self._dataManager.epoch)
-
+	def Release(self):
+		print("Trainer.Release()")
+		self._dataManager.Stop()
 
 	def _backPropergateNet(self, session_):
 		currentLearningRate = trainSettings.GetLearningRate(self._dataManager.epoch, self._dataManager.step)
@@ -90,6 +88,14 @@ class Trainer:
 
 		session_.run( [self._optimzeOp],
 		 	      feed_dict = inputFeedDict )
+
+		if self._dataManager.isNewEpoch:
+			summary = tf.Summary()
+			summary.value.add(tag='LearningRate', simple_value=currentLearningRate)
+			self._summaryWriter.add_summary(summary, self._dataManager.epoch)
+
+
+
 	def _updateNet(self, session_):
 		'''
 		    Some Network has variables that need to be updated after training (e.g. the net with

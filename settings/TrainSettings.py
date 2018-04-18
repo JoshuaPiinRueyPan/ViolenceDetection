@@ -16,6 +16,8 @@ import settings.DataSettings as dataSettings
 '''
 BATCH_SIZE = 4
 UNROLLED_SIZE = 40
+#BATCH_SIZE = 40
+#UNROLLED_SIZE = 1
 
 PRETRAIN_MODEL_PATH_NAME = ""
 
@@ -25,10 +27,10 @@ PRETRAIN_MODEL_PATH_NAME = ""
 '''
 NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 
-MAX_TRAINING_EPOCH = 10
+MAX_TRAINING_EPOCH = 15
 
 EPOCHS_TO_START_SAVE_MODEL = 1
-PATH_TO_SAVE_MODEL = "temp/P1D19_1Fc_1LSTM-lr4-train2"
+PATH_TO_SAVE_MODEL = "temp/P1D19_1Fc_2LSTM_dataAug"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
 
 def GetOptimizer(learningRate_):
@@ -42,6 +44,7 @@ def GetOptimizer(learningRate_):
 '''
 def _stepLearningRate(currentEpoch_):
 	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
+	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-5), (15, 1e-6), (20, 1e-7) ]
 
 	for eachPair in reversed(LIST_OF_EPOCH_LEARNING_RATE_PAIRS):
 		if currentEpoch_ >= eachPair[0]:
@@ -90,3 +93,11 @@ def GetLearningRate(currentEpoch_=None, currentStep_=None):
 	return _stepLearningRate(currentEpoch_)
 
 
+
+#####################
+# Advenced Settings #
+#####################
+DATA_QUEUE_MAX_SIZE = 60
+NUMBER_OF_LOAD_DATA_THREADS=4
+#DATA_QUEUE_MAX_SIZE = 80
+#NUMBER_OF_LOAD_DATA_THREADS=4

@@ -7,6 +7,8 @@ import settings.TrainSettings as trainSettings
 import settings.EvaluationSettings as evalSettings
 import settings.DataSettings as dataSettings
 from src.data.VideoData import VideoData
+import src.data.DataAugmenter as DataAugmenter
+
 import six
 if six.PY2:
 	from Queue import *
@@ -33,7 +35,7 @@ class BatchData:
 
 class DataManagerBase:
 	__metaclass__ = ABCMeta
-	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
+	def __init__(self, PATH_TO_DATA_SET_CATELOG_, DATA_QUEUE_MAX_SIZE_):
 		self._listOfData = []
 		self._initVideoData(PATH_TO_DATA_SET_CATELOG_)
 		self._lockForThreadControl = threading.Lock()
@@ -42,8 +44,8 @@ class DataManagerBase:
 		self._listOfLoadDataThreads = []
 
 		self._lockForDataList = threading.Lock()
-		self._queueForWaitingVideos = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE*2)
-		self._queueForLoadedVideos = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE)
+		self._queueForWaitingVideos = Queue(maxsize=2*DATA_QUEUE_MAX_SIZE_)
+		self._queueForLoadedVideos = Queue(maxsize=DATA_QUEUE_MAX_SIZE_)
 
 		self.TOTAL_DATA = len(self._listOfData)
 
@@ -200,8 +202,8 @@ class DataManagerBase:
 
 
 class TrainDataManager(DataManagerBase):
-	def __init__(self, PATH_TO_DATA_SET_CATELOG_, NUMBER_OF_LOAD_DATA_THREADS=4):
-		super().__init__(PATH_TO_DATA_SET_CATELOG_)
+	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
+		super().__init__(PATH_TO_DATA_SET_CATELOG_, trainSettings.DATA_QUEUE_MAX_SIZE)
 
 		# Public variables
 		self._epoch = 0
@@ -210,16 +212,27 @@ class TrainDataManager(DataManagerBase):
 		self._isNewEpoch = True
 		self._dataCursor = 0
 
-		if len(self._listOfData) < (NUMBER_OF_LOAD_DATA_THREADS*trainSettings.BATCH_SIZE):
-			errorMessage = "(NumberOfTrainingData) < (NumberOfLoadDataThreds*BatchSize)!\n"
+		if len(self._listOfData) < (trainSettings.NUMBER_OF_LOAD_DATA_THREADS*trainSettings.BATCH_SIZE):
+			errorMessage = "NUMBER_OF_TRAIN_DATA(=" + str(len(self._listOfData)) + ")"
+			errorMessage += " < trainSettings.NUMBER_OF_LOAD_DATA_THREADS * BatchSize(=" 
+			errorMessage += str(trainSettings.NUMBER_OF_LOAD_DATA_THREADS*trainSettings.BATCH_SIZE) + ")!\n"
 			errorMessage += "This will cause DeadLock, since each loading thread can't get "
 			errorMessage += "all batch data.\n"
-			errorMessage += "Reduce the NUMBER_OF_LOAD_DATA_THREADS, or get More data!"
+			errorMessage += "Reduce the trainSettings.NUMBER_OF_LOAD_DATA_THREADS, or get More data!"
 			raise ValueError(errorMessage)
 
-		self.pushVideoDataToWaitingQueue(dataSettings.DATA_QUEUE_MAX_SIZE*2)
+		if trainSettings.BATCH_SIZE > (2*trainSettings.DATA_QUEUE_MAX_SIZE):
+			errorMessage += "BATCH_SIZE(=" + str(trainSettings.BATCH_SIZE) + ")"
+			errorMessage += " > WaitingQueue.size(=2*trainSettings.DATA_QUEUE_MAX_SIZE)\n"
+			errorMessage += "This will cause DeadLock, since each loading thread can't get "
+			errorMessage += "all batch data.\n"
+			errorMessage += "Reduce the trainSettings.NUMBER_OF_LOAD_DATA_THREADS, or Increate the DATA_QUEUE_MAX_SIZE"
+			raise ValueError(errorMessage)
+			
 
-		self._executeLoadDataThreads(NUMBER_OF_LOAD_DATA_THREADS)
+		self.pushVideoDataToWaitingQueue(trainSettings.DATA_QUEUE_MAX_SIZE*2)
+
+		self._executeLoadDataThreads(trainSettings.NUMBER_OF_LOAD_DATA_THREADS)
 
 	def AssignBatchData(self, batchData_):
 		'''
@@ -266,11 +279,11 @@ class TrainDataManager(DataManagerBase):
 		return self._step
 	
 	def _loadVideoData(self):
-		if self._queueForLoadedVideos.qsize() <= dataSettings.DATA_QUEUE_MAX_SIZE:
+		if self._queueForLoadedVideos.qsize() <= trainSettings.DATA_QUEUE_MAX_SIZE:
 			listOfLoadedVideos = []
 			for i in range(trainSettings.BATCH_SIZE):
 				videoReader = self._queueForWaitingVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
-				videoReader.LoadVideoImages()
+				videoReader.LoadVideoImages(dataAugmentFunction_=DataAugmenter.Augment)
 				listOfLoadedVideos.append(videoReader)
 
 			batchData = BatchData()
@@ -305,18 +318,18 @@ class TrainDataManager(DataManagerBase):
 				self.appendVideoDataBackToDataList(listOfLoadedVideos)
 
 			except Full:
-				print("\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
-				      ");  put VideoReader back to WaitingQueue")
+				#print("\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
+				#      ");  put VideoReader back to WaitingQueue")
 				try:
 					while len(listOfLoadedVideos) > 0:
 						eachVideoReader = listOfLoadedVideos.pop(0)
 						self._queueForWaitingVideos.put(eachVideoReader, block=True,
 										timeout=TIMEOUT_FOR_WAIT_QUEUE)
-						print("\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
-						      ")...")
+						#print("\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
+						#      ")...")
 				except Full:
-					print("\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
-					      "); put VideoReader back to data list")
+					#print("\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
+					#      "); put VideoReader back to data list")
 					listOfLoadedVideos.insert(0, eachVideoReader)
 					with self._lockForDataList:
 						self._listOfData = listOfLoadedVideos + self._listOfData
@@ -349,19 +362,17 @@ class EvaluationDataManager(DataManagerBase):
 					valDataSet.Pause()
 					break
 	'''
-	def __init__(self, PATH_TO_DATA_SET_CATELOG_, NUMBER_OF_LOAD_DATA_THREADS=1):
-		super().__init__(PATH_TO_DATA_SET_CATELOG_)
+	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
+		super().__init__(PATH_TO_DATA_SET_CATELOG_, evalSettings.DATA_QUEUE_MAX_SIZE)
 		self._isAllDataTraversed = False
 		self._isNewVideo = True
 		self._dataCursor = 0
 		self._currentVideo = None
 		self._frameCursor = 0
 
-		self._queueForWaitingVideos = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE*2)
-		self._queueForLoadedVideos = Queue(maxsize=dataSettings.DATA_QUEUE_MAX_SIZE)
-		self.pushVideoDataToWaitingQueue(dataSettings.DATA_QUEUE_MAX_SIZE)
+		self.pushVideoDataToWaitingQueue(evalSettings.DATA_QUEUE_MAX_SIZE)
 
-		self._executeLoadDataThreads(NUMBER_OF_LOAD_DATA_THREADS)
+		self._executeLoadDataThreads(evalSettings.NUMBER_OF_LOAD_DATA_THREADS)
 
 	def AssignBatchData(self, batchData_):
 		'''
@@ -419,7 +430,7 @@ class EvaluationDataManager(DataManagerBase):
 		return self._isNewVideo
 
 	def _loadVideoData(self):
-		if self._queueForLoadedVideos.qsize() <= dataSettings.DATA_QUEUE_MAX_SIZE:
+		if self._queueForLoadedVideos.qsize() <= evalSettings.DATA_QUEUE_MAX_SIZE:
 			videoReader = self._queueForWaitingVideos.get(block=False)
 			videoReader.LoadVideoImages()
 
@@ -428,14 +439,14 @@ class EvaluationDataManager(DataManagerBase):
 
 			except:
 				videoReader.ReleaseImages()
-				print("\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
-				      "); stuff VideoReader back to WaitingQueue.")
+				#print("\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
+				#      "); stuff VideoReader back to WaitingQueue.")
 				try:
 					self._queueForWaitingVideos.put(videoReader, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
 
 				except Full:
-					print("\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
-					      "); stuff VideoReader back to Data list.")
+					#print("\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
+					#      "); stuff VideoReader back to Data list.")
 					with self._lockForDataList:
 						self._listOfData.insert(0, videoReader)
 

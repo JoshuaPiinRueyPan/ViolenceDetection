@@ -17,7 +17,7 @@ class Net(NetworkBase):
 		self._trainingStep = trainingStep_
 	
 		self._DROPOUT_VALUE = 0.5
-		self._NUMBER_OF_NEURONS_IN_LSTM_1 = 1024
+		self._NUMBER_OF_NEURONS_IN_LSTM = 1024
 
 	def Build(self):
 		darknet19_GraphDef = tf.GraphDef()
@@ -69,11 +69,11 @@ class Net(NetworkBase):
 
 		print("LSTM input.shape = ", out.shape)
 
-		out, self._stateTensorOfLSTM_1, self._statePlaceHolderOfLSTM_1, self._lstm_1 = LSTM("LSTM_1",
-												    out,
-												    self._NUMBER_OF_NEURONS_IN_LSTM_1,
-												    isTraining_=self._isTraining,
-												    dropoutProb_=0.5)
+		out, self._stateTensorOfLSTM_1, self._statePlaceHolderOfLSTM_1 = LSTM(	"LSTM_1",
+											out,
+											self._NUMBER_OF_NEURONS_IN_LSTM,
+											isTraining_=self._isTraining,
+											dropoutProb_=0.5)
 		print("Fc_final input.shape = ", out.shape)
 		featuresShapeInOneBatch = out.shape[2:].as_list()
 		targetShape = [self._batchSize * self._unrolledSize] + featuresShapeInOneBatch
@@ -126,7 +126,7 @@ class Net(NetworkBase):
 			    For the first time (or, the first of Unrolls), there's no previous state,
 			    return zeros state.
 			'''
-			initialCellState = tuple( [np.zeros([BATCH_SIZE_, self._NUMBER_OF_NEURONS_IN_LSTM_1])] * 2 )
+			initialCellState = tuple( [np.zeros([BATCH_SIZE_, self._NUMBER_OF_NEURONS_IN_LSTM])] * 2 )
 			initialCellState = tf.nn.rnn_cell.LSTMStateTuple(initialCellState[0], initialCellState[1])
 
 			return {self._statePlaceHolderOfLSTM_1 : initialCellState }

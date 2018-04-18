@@ -22,5 +22,4 @@ NUMBER_OF_CATEGORIES = 2
 #####################
 # Advenced Settings #
 #####################
-DATA_QUEUE_MAX_SIZE = 30
 FLOAT_TYPE = np.float32

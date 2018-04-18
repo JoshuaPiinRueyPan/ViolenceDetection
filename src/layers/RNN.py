@@ -34,5 +34,5 @@ def LSTM(name_, inputTensor_, numberOfOutputs_, isTraining_, dropoutProb_=None):
 					tf.losses.add_loss(regularizationLoss, loss_collection=tf.GraphKeys.REGULARIZATION_LOSSES)
 					
 
-	return outputTensor, stateTensor, statePlaceHolder, cell
+	return outputTensor, stateTensor, statePlaceHolder
 
