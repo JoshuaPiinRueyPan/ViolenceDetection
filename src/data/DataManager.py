@@ -24,7 +24,7 @@ TIMEOUT_FOR_WAIT_QUEUE = 10
 '''
    Number of Data to Produce when One data is Consumed.
 '''
-PRODUCE_CONSUME_RATIO = 5
+PRODUCE_CONSUME_RATIO = 10
 
 class BatchData:
 	def __init__(self):
@@ -35,7 +35,7 @@ class BatchData:
 
 class DataManagerBase:
 	__metaclass__ = ABCMeta
-	def __init__(self, PATH_TO_DATA_SET_CATELOG_, DATA_QUEUE_MAX_SIZE_):
+	def __init__(self, PATH_TO_DATA_SET_CATELOG_, WAITING_QUEUE_MAX_SIZE_, LOADED_QUEUE_MAX_SIZE_):
 		self._listOfData = []
 		self._initVideoData(PATH_TO_DATA_SET_CATELOG_)
 		self._lockForThreadControl = threading.Lock()
@@ -44,8 +44,8 @@ class DataManagerBase:
 		self._listOfLoadDataThreads = []
 
 		self._lockForDataList = threading.Lock()
-		self._queueForWaitingVideos = Queue(maxsize=2*DATA_QUEUE_MAX_SIZE_)
-		self._queueForLoadedVideos = Queue(maxsize=DATA_QUEUE_MAX_SIZE_)
+		self._queueForWaitingVideos = Queue(maxsize=WAITING_QUEUE_MAX_SIZE_)
+		self._queueForLoadedVideos = Queue(maxsize=LOADED_QUEUE_MAX_SIZE_)
 
 		self.TOTAL_DATA = len(self._listOfData)
 
@@ -69,8 +69,8 @@ class DataManagerBase:
 
 	def GetQueueInfo(self):
 		info = "listOfData.len() = " + str( len(self._listOfData) ) + ";\t"
-		info += "queueForWaiting.len() = " + str( self._queueForWaitingVideos.qsize() ) + ";\t"
-		info += "queueForLoaded.len() = " + str(self._queueForLoadedVideos.qsize() ) + ";\t"
+		info += "WaitingQueue.len() = " + str( self._queueForWaitingVideos.qsize() ) + ";\t"
+		info += "LoadedQueue.len() = " + str(self._queueForLoadedVideos.qsize() ) + ";\t"
 		with self._lockForThreadControl:
 			info += "Pause = " + str(self._shouldPause)
 		return info
@@ -90,6 +90,7 @@ class DataManagerBase:
 
 				except Exception as error:
 					print(error)
+
 		if len(self._listOfData) == 0:
 			raise ValueError("No Valid Data found in: " + PATH_TO_DATA_SET_CATELOG_)
 
@@ -114,13 +115,10 @@ class DataManagerBase:
 				try:
 					self._loadVideoData()
 
-				except Empty:
-					'''
-					    Catch the Queue.Empty exception thrown
-					    by waiting timeout.
-					'''
-					time.sleep(0.0005)
+				except TimeoutError:
+					time.sleep(0.1)
 
+				
 			# Update shouldStop flag
 			with self._lockForThreadControl:
 				shouldPause = self._shouldPause
@@ -166,21 +164,24 @@ class DataManagerBase:
 			try:
 				with self._lockForDataList:
 					videoReader = self._listOfData.pop(0)
+
+			except IndexError:
+				'''
+				    For the case that WAITING_QUEUE_MAX_SIZE > TOTAL_DATA,
+				    the IndexError may be raised from '_listOfData.pop()'.
+				'''
+				print("\t\t\t ** In DataManager:")
+				print("\t\t\t\t All data in self._listOfData is pushed to the WaitingQueue or LoadedQueue.")
+				print("\t\t\t\t You may want to reduce the WAITING_QUEUE_MAX_SIZE...")
+
+			try:
 				self._queueForWaitingVideos.put(videoReader, block=False)
 
 			except Full:
 				with self._lockForDataList:
-					self._listOfData.append(videoReader)
+					self._listOfData = [videoReader] + self._listOfData
 
-			except IndexError:
-				'''
-				    For the case that DATA_QUEUE_MAX_SIZE > TOTAL_DATA,
-				    the IndexError may be raised from '_listOfData.pop()'.
-				'''
-				pass
-
-
-
+		
 	def appendVideoDataBackToDataList(self, listOfVideoData_):
 		'''
 		    After you get the video from 'self._queueForLoadedVideos'
@@ -203,7 +204,9 @@ class DataManagerBase:
 
 class TrainDataManager(DataManagerBase):
 	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
-		super().__init__(PATH_TO_DATA_SET_CATELOG_, trainSettings.DATA_QUEUE_MAX_SIZE)
+		super().__init__(PATH_TO_DATA_SET_CATELOG_,
+				 WAITING_QUEUE_MAX_SIZE_=trainSettings.WAITING_QUEUE_MAX_SIZE,
+				 LOADED_QUEUE_MAX_SIZE_=trainSettings.LOADED_QUEUE_MAX_SIZE)
 
 		# Public variables
 		self._epoch = 0
@@ -221,16 +224,16 @@ class TrainDataManager(DataManagerBase):
 			errorMessage += "Reduce the trainSettings.NUMBER_OF_LOAD_DATA_THREADS, or get More data!"
 			raise ValueError(errorMessage)
 
-		if trainSettings.BATCH_SIZE > (2*trainSettings.DATA_QUEUE_MAX_SIZE):
+		if trainSettings.BATCH_SIZE > (trainSettings.WAITING_QUEUE_MAX_SIZE):
 			errorMessage += "BATCH_SIZE(=" + str(trainSettings.BATCH_SIZE) + ")"
-			errorMessage += " > WaitingQueue.size(=2*trainSettings.DATA_QUEUE_MAX_SIZE)\n"
+			errorMessage += " > TrainSettings.WAITING_QUEUE_MAX_SIZE)\n"
 			errorMessage += "This will cause DeadLock, since each loading thread can't get "
 			errorMessage += "all batch data.\n"
-			errorMessage += "Reduce the trainSettings.NUMBER_OF_LOAD_DATA_THREADS, or Increate the DATA_QUEUE_MAX_SIZE"
+			errorMessage += "Reduce the trainSettings.NUMBER_OF_LOAD_DATA_THREADS, or Increate the Queue size"
 			raise ValueError(errorMessage)
 			
 
-		self.pushVideoDataToWaitingQueue(trainSettings.DATA_QUEUE_MAX_SIZE*2)
+		self.pushVideoDataToWaitingQueue(trainSettings.WAITING_QUEUE_MAX_SIZE)
 
 		self._executeLoadDataThreads(trainSettings.NUMBER_OF_LOAD_DATA_THREADS)
 
@@ -246,7 +249,16 @@ class TrainDataManager(DataManagerBase):
 		'''
 		self._isNewEpoch = False
 
-		batchData = self._queueForLoadedVideos.get(block=True)
+		try:
+			batchData = self._queueForLoadedVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+
+		except Empty:
+			errorMessage = "In TrainDataManager:"
+			errorMessage += "\t Unable to get batch data in duration: "
+			errorMessage += TIMEOUT_FOR_WAIT_QUEUE + "(s)\n"
+			errorMessage += "\t TrainQueue info:\n"
+			errorMessage += self.GetQueueInfo()
+			raise TimeoutError(errorMessage)
 
 		batchData_.batchSize = batchData.batchSize
 		batchData_.unrolledSize = batchData.unrolledSize
@@ -279,11 +291,30 @@ class TrainDataManager(DataManagerBase):
 		return self._step
 	
 	def _loadVideoData(self):
-		if self._queueForLoadedVideos.qsize() <= trainSettings.DATA_QUEUE_MAX_SIZE:
+		if self._queueForLoadedVideos.qsize() <= trainSettings.LOADED_QUEUE_MAX_SIZE:
 			listOfLoadedVideos = []
 			for i in range(trainSettings.BATCH_SIZE):
-				videoReader = self._queueForWaitingVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
-				videoReader.LoadVideoImages(dataAugmentFunction_=DataAugmenter.Augment)
+				try:
+					videoReader = self._queueForWaitingVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+
+				except Empty:
+					for eachVideoReader in listOfLoadedVideos:
+						print("\t\t\t ** In TrainDataManager:")
+						print("\t\t\t\t    WaitingQueue is Empty, not enough data to form a batch.")
+						print("\t\t\t\t    " + self.GetQueueInfo())
+						print("\t\t\t\t    Release batch data and push VideoReader back to WaitingQueue...")
+						print("\t\t\t\t    Note: You may want to reduce the thread size.")
+						eachVideoReader.ReleaseImages()
+						self._queueForWaitingVideos.put(eachVideoReader, block=True,
+										timeout=TIMEOUT_FOR_WAIT_QUEUE)
+
+					raise TimeoutError
+
+				if trainSettings.PERFORM_DATA_AUGMENTATION:
+					videoReader.LoadVideoImages(dataAugmentFunction_=DataAugmenter.Augment)
+				else:
+					videoReader.LoadVideoImages()
+
 				listOfLoadedVideos.append(videoReader)
 
 			batchData = BatchData()
@@ -318,25 +349,25 @@ class TrainDataManager(DataManagerBase):
 				self.appendVideoDataBackToDataList(listOfLoadedVideos)
 
 			except Full:
-				#print("\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
-				#      ");  put VideoReader back to WaitingQueue")
+				print("\t\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
+				      ");  put VideoReader back to WaitingQueue")
 				try:
 					while len(listOfLoadedVideos) > 0:
 						eachVideoReader = listOfLoadedVideos.pop(0)
 						self._queueForWaitingVideos.put(eachVideoReader, block=True,
 										timeout=TIMEOUT_FOR_WAIT_QUEUE)
-						#print("\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
-						#      ")...")
+						print("\t\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
+						      ")...")
 				except Full:
-					#print("\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
-					#      "); put VideoReader back to data list")
+					print("\t\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
+					      "); put VideoReader back to data list")
 					listOfLoadedVideos.insert(0, eachVideoReader)
 					with self._lockForDataList:
 						self._listOfData = listOfLoadedVideos + self._listOfData
 
 		
 		else:
-			time.sleep(0.001)
+			time.sleep(0.1)
 
 
 
@@ -363,14 +394,16 @@ class EvaluationDataManager(DataManagerBase):
 					break
 	'''
 	def __init__(self, PATH_TO_DATA_SET_CATELOG_):
-		super().__init__(PATH_TO_DATA_SET_CATELOG_, evalSettings.DATA_QUEUE_MAX_SIZE)
+		super().__init__(PATH_TO_DATA_SET_CATELOG_,
+				 WAITING_QUEUE_MAX_SIZE_=evalSettings.WAITING_QUEUE_MAX_SIZE,
+				 LOADED_QUEUE_MAX_SIZE_=evalSettings.LOADED_QUEUE_MAX_SIZE)
 		self._isAllDataTraversed = False
 		self._isNewVideo = True
 		self._dataCursor = 0
 		self._currentVideo = None
 		self._frameCursor = 0
 
-		self.pushVideoDataToWaitingQueue(evalSettings.DATA_QUEUE_MAX_SIZE)
+		self.pushVideoDataToWaitingQueue(evalSettings.WAITING_QUEUE_MAX_SIZE)
 
 		self._executeLoadDataThreads(evalSettings.NUMBER_OF_LOAD_DATA_THREADS)
 
@@ -387,7 +420,16 @@ class EvaluationDataManager(DataManagerBase):
 		self._isAllDataTraversed = False
 		self._isNewVideo = False
 		if self._currentVideo == None:
-			self._currentVideo = self._queueForLoadedVideos.get(block=True)
+			try:
+				self._currentVideo = self._queueForLoadedVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+
+			except Empty:
+				errorMessage = "In EvaluationDataManager:"
+				errorMessage += "\t Unable to get batch data in duration: "
+				errorMessage += TIMEOUT_FOR_WAIT_QUEUE + "(s)\n"
+				errorMessage += "\t TrainQueue info:\n"
+				errorMessage += self.GetQueueInfo()
+				raise TimeoutError(errorMessage)
 
 		unrolledSize = min(evalSettings.UNROLLED_SIZE,
 				   self._currentVideo.totalFrames - self._frameCursor)
@@ -430,8 +472,13 @@ class EvaluationDataManager(DataManagerBase):
 		return self._isNewVideo
 
 	def _loadVideoData(self):
-		if self._queueForLoadedVideos.qsize() <= evalSettings.DATA_QUEUE_MAX_SIZE:
-			videoReader = self._queueForWaitingVideos.get(block=False)
+		if self._queueForLoadedVideos.qsize() <= evalSettings.LOADED_QUEUE_MAX_SIZE:
+			try:
+				videoReader = self._queueForWaitingVideos.get(block=False)
+
+			except Empty:
+				raise TimeoutError()
+
 			videoReader.LoadVideoImages()
 
 			try:
@@ -439,16 +486,16 @@ class EvaluationDataManager(DataManagerBase):
 
 			except:
 				videoReader.ReleaseImages()
-				#print("\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
-				#      "); stuff VideoReader back to WaitingQueue.")
+				print("\t\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
+				      "); stuff VideoReader back to WaitingQueue.")
 				try:
 					self._queueForWaitingVideos.put(videoReader, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
 
 				except Full:
-					#print("\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
-					#      "); stuff VideoReader back to Data list.")
+					print("\t\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
+					      "); stuff VideoReader back to Data list.")
 					with self._lockForDataList:
 						self._listOfData.insert(0, videoReader)
 
 		else:
-			time.sleep(0.001)
+			time.sleep(0.1)

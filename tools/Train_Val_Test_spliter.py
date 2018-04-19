@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 '''
     This script will save 3 files: train.txt, val.txt, test.txt.
     each file has the following format:

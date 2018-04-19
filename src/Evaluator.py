@@ -22,7 +22,6 @@ class Evaluator:
 		self._bestThreshold = -1
 
 	def __del__(self):
-		print("Stop EvaluationDataManager")
 		self._dataManager.Stop()
 
 
@@ -51,6 +50,7 @@ class Evaluator:
 				break
 
 
+
 		self._dataManager.Pause()
 		meanLoss = totalLosses / countOfLosses
 
@@ -68,12 +68,10 @@ class Evaluator:
 		summary.value.add(tag='accuracy', simple_value=accuracy)
 		self._summaryWriter.add_summary(summary, currentEpoch_)
 
-		self._dataManager.Pause()
 
 		return meanLoss, threshold, accuracy
 
 	def Release(self):
-		print("Evaluator.Release()")
 		self._dataManager.Stop()
 		
 

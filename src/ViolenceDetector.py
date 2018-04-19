@@ -1,6 +1,7 @@
 import tensorflow as tf		
 import numpy as np
 import settings.DeploySettings as deploySettings
+import settings.NetSettings as netSettings
 
 class OutputSmoother:
 	def __init__(self):
@@ -36,7 +37,7 @@ class ViolenceDetector:
 		self._trainingStepPlaceholder = tf.placeholder(tf.int64)
 
 		# Net
-		self._net = deploySettings.GetNetwork(	self._inputPlaceholder,
+		self._net = netSettings.GetNetwork(	self._inputPlaceholder,
 							self._batchSizePlaceholder,
 							self._unrolledSizePlaceholder,
 							self._isTrainingPlaceholder,
@@ -89,7 +90,7 @@ class ViolenceDetector:
 		return smoothedOutput
 
 	def _recoverModelFromCheckpoints(self):
-		print("Load Pretrain model from: ", deploySettings.PATH_TO_MODEL_CHECKPOINTS)
+		print("Load Model from: ", deploySettings.PATH_TO_MODEL_CHECKPOINTS)
 		modelLoader = tf.train.Saver()
 		modelLoader.restore(self.session, deploySettings.PATH_TO_MODEL_CHECKPOINTS)
 

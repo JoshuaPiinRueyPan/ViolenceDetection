@@ -45,7 +45,6 @@ class Main:
 		self.validationEvaluator.SetGraph(self.session.graph)
 
 	def __del__(self):
-		print("In Train.py destructor")
 		self.session.close()
 
 	def Run(self):
@@ -68,9 +67,13 @@ class Main:
 					+ "======================================")
 
 				self.printTimeMeasurement()
+				self.trainer.PauseDataLoading()
 				self.evaluateValidationSetAndPrint(self.trainer.currentEpoch)
 				self.evaluateTrainingSetAndPrint()
 				self.evaluateTestSetAndPrint(self.trainer.currentEpoch)
+				self.trainer.ContinueDataLoading()
+				print("\t TrainQueue info: " + self.trainer._dataManager.GetQueueInfo())
+				print()
 
 				self.resetTimeMeasureVariables()
 
@@ -106,6 +109,11 @@ class Main:
 			self.printCalculationResults(jobType_='train', loss_=loss, isThresholdOptimized_=False,
 						     threshold_=threshold, accuracy_=accuracy,
 						     duration_=(endEvaluateTime-startEvaluateTime) )
+
+		if (loss >= 0.5)and(self.trainer.currentEpoch > 1):
+			print("\t\t training loss too high, save batch images to disk, for further examination...")
+			self.trainer.SaveCurrentBatchData()
+
 
 	def calculateValidationBeforeTraining(self):
 		if trainSettings.PRETRAIN_MODEL_PATH_NAME != "":
@@ -155,6 +163,8 @@ class Main:
 		print("\t\t duration: ", "{0:.4f}".format(timeForTrainOneEpoch), "s/epoch")
 		averagedTrainTime = timeForTrainOneEpoch / self._trainCountInOneEpoch
 		print("\t\t average: ", "{0:.4f}".format(averagedTrainTime), "s/batch")
+		print()
+		print("\t TrainQueue info: " + self.trainer._dataManager.GetQueueInfo())
 		print()
 
 	def resetTimeMeasureVariables(self):

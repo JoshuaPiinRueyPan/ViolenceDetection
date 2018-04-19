@@ -105,42 +105,43 @@ def _augmentedBySelectedMethods():
 						# horizontally flip 50% of all images
 						lib.Fliplr(0.5),
 
-						# crop images by -5% to 10% of their height/width
-						sometimes( lib.CropAndPad(
-									  percent=(-0.05, 0.1),
-						)),
-						sometimes( lib.Affine(
-									# scale images to 80-120% of their size, individually per axis
-									scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
-
-									# translate by -20 to +20 percent (per axis)
-									translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
-
-									# rotate by -15 to +15 degrees
-									rotate=(-15, 15),
-
-									# shear by -16 to +16 degrees
-									shear=(-16, 16),
-
-									# use nearest neighbour or bilinear interpolation (fast)
-									order=[0, 1], 
-						)),
+#						# crop images by -5% to 10% of their height/width
+#						sometimes( lib.CropAndPad(
+#									  percent=(-0.05, 0.1),
+#						)),
+#						sometimes( lib.Affine(
+#									# scale images to 90-110% of their size, individually per axis
+#									scale={"x": (0.9, 1.1), "y": (0.9, 1.1)},
+#
+#									# translate by -10 to +10 percent (per axis)
+#									translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)},
+#
+#									# rotate by -5 to +5 degrees
+#									rotate=(-5, 5),
+#
+#									# shear by -16 to +16 degrees
+#									shear=(-16, 16),
+#
+#									# use nearest neighbour or bilinear interpolation (fast)
+#									order=[0, 1], 
+#						)),
 						# execute 0 to 5 of the following (less important) augmenters per image
 						# don't execute all of them, as that would often be way too strong
 						lib.SomeOf( (0, 5),
 							    [
 								lib.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)), # sharpen images
+								lib.Emboss(alpha=(0, 1.0), strength=(0, 1.0)),
 								# search either for all edges or for directed edges,
 								# blend the result with the original image using a blobby mask
 								lib.SimplexNoiseAlpha(lib.OneOf([
-								    lib.EdgeDetect(alpha=(0.5, 1.0)),
-								    lib.DirectedEdgeDetect(alpha=(0.5, 1.0), direction=(0.0, 1.0)),
+								    lib.EdgeDetect(alpha=(0.3, 0.6)),
+								    lib.DirectedEdgeDetect(alpha=(0.3, 0.6), direction=(0.0, 1.0)),
 								])),
 								# add gaussian noise to images
 								lib.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255),
 												 per_channel=0.5),
 
-								lib.Dropout(p=0.03, per_channel=0.5),
+								lib.Dropout( (0.0, 0.05), per_channel=0.5),
 
 								# change brightness of images (by -10 to 10 of original value)
 								lib.Add((-10, 10), per_channel=0.5),
@@ -159,7 +160,7 @@ def _augmentedBySelectedMethods():
 								    )
 								]),
 								# improve or worsen the contrast
-								lib.ContrastNormalization((0.5, 2.0), per_channel=0.5),
+								lib.ContrastNormalization((0.6, 2.0), per_channel=0.5),
 								lib.Grayscale(alpha=(0.0, 0.8)),
 								# sometimes move parts of the image around
 								sometimes(lib.PiecewiseAffine(scale=(0.01, 0.05))),
@@ -173,6 +174,25 @@ def _augmentedBySelectedMethods():
 
 	return augmentMethod
 
+
+def _augTest():
+	sometimes = lambda aug: lib.Sometimes(0.5, aug)
+	augmentMethod = lib.Sequential([
+						#lib.SimplexNoiseAlpha(lib.OneOf([
+						#		    lib.EdgeDetect(alpha=(0.3, 0.6)),
+						#		    lib.DirectedEdgeDetect(alpha=(0.3, 0.6), direction=(0.0, 1.0)),
+						#])),
+						lib.FrequencyNoiseAlpha(
+							exponent=(-4, 0),
+							first=lib.Multiply((0.5, 1.5), per_channel=True),
+							second=lib.ContrastNormalization((0.5, 2.0))
+						)
+					],
+					random_order=True
+				      )
+	return augmentMethod
+
+
 def Augment(batchOfImagesInUINT8_):
 	'''
 	    'images' should be either a 4D numpy array of shape (N, height, width, channels)
@@ -182,6 +202,7 @@ def Augment(batchOfImagesInUINT8_):
 	'''
 	augmentMethod = _augmentedBySelectedMethods()
 	#augmentMethod = _augmentedByAllMethods()
+	#augmentMethod = _augTest()
 	'''
 	    The following Augmenter will augment images in the same way.
 	'''

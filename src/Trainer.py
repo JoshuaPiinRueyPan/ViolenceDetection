@@ -1,8 +1,14 @@
+import os
+import cv2
 import tensorflow as tf
 import settings.TrainSettings as trainSettings
 import settings.DataSettings as dataSettings
 from src.data.DataManager import TrainDataManager, BatchData
 from src.AccuracyCalculator import *
+import src.data.ImageUtils as ImageUtils
+
+import time
+import numpy as np
 
 class Trainer:
 	def __init__(self, classifier_):
@@ -10,6 +16,8 @@ class Trainer:
 		self._learningRatePlaceHolder = tf.placeholder(tf.float32, shape=[])
 		self._classifier = classifier_
 		self._accuracyCalculator = VideosAccuracyCalculator()
+
+		self._listOfGetBatchTime = []
 
 		try:
 			# If there's other losses (e.g. Regularization Loss)
@@ -23,11 +31,11 @@ class Trainer:
 		gradients = optimizer.compute_gradients(totalLossOp)
 		self._drawGradients(gradients)
 		self._optimzeOp = optimizer.apply_gradients(gradients)
+		#self._countOfTrainSteps = 0
 
 		self._summaryWriter = tf.summary.FileWriter(trainSettings.PATH_TO_SAVE_MODEL+"/train")
 
 	def __del__(self):
-		print("Stop TrainDataManager")
 		self._dataManager.Stop()
 
 	def SetMergedSummaryOp(self, allSummariesOp_):
@@ -55,65 +63,23 @@ class Trainer:
 		self._dataManager.Continue()
 
 	def PrepareNewBatchData(self):
+		#print("step = ", self._countOfTrainSteps, end='')
+		#print("\t TrainQueue info: " + self._dataManager.GetQueueInfo())
+
 		self._batchData = BatchData()
+
+		startGetBatchTime = time.time()
+
 		self._dataManager.AssignBatchData(self._batchData)
+
+		endGetBatchTime = time.time()
+		self._listOfGetBatchTime.append(endGetBatchTime - startGetBatchTime)
+
+		#self._countOfTrainSteps += 1
 
 	def Train(self, tf_session_):
 		self._backPropergateNet(tf_session_)
 		self._updateNet(tf_session_)
-
-	def Release(self):
-		print("Trainer.Release()")
-		self._dataManager.Stop()
-
-	def _backPropergateNet(self, session_):
-		currentLearningRate = trainSettings.GetLearningRate(self._dataManager.epoch, self._dataManager.step)
-
-		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
-				  self._classifier.batchSize : self._batchData.batchSize,
-				  self._classifier.unrolledSize : self._batchData.unrolledSize,
-				  self._classifier.isTraining : True,
-				  self._classifier.trainingStep : self._dataManager.step,
-				  self._classifier.groundTruth : self._batchData.batchOfLabels,
-				  self._learningRatePlaceHolder : currentLearningRate }
-
-		'''
-		    For Training, do not use previous state.  Set the argument:
-		    'listOfPreviousStateValues_'=None to ensure using the zeros
-		    as LSTM state.
-		'''
-		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
-
-		inputFeedDict.update(cellStateFeedDict)
-
-		session_.run( [self._optimzeOp],
-		 	      feed_dict = inputFeedDict )
-
-		if self._dataManager.isNewEpoch:
-			summary = tf.Summary()
-			summary.value.add(tag='LearningRate', simple_value=currentLearningRate)
-			self._summaryWriter.add_summary(summary, self._dataManager.epoch)
-
-
-
-	def _updateNet(self, session_):
-		'''
-		    Some Network has variables that need to be updated after training (e.g. the net with
-		    batch normalization).  After training, following code update such variables.
-		'''
-		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
-				  self._classifier.batchSize : self._batchData.batchSize,
-				  self._classifier.unrolledSize : self._batchData.unrolledSize,
-				  self._classifier.isTraining : False,
-				  self._classifier.trainingStep : self._dataManager.step,
-				  self._classifier.groundTruth : self._batchData.batchOfLabels }
-		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
-
-		inputFeedDict.update(cellStateFeedDict)
-
-		session_.run( [self._classifier.updateOp],
-		 	     feed_dict = inputFeedDict )
-
 
 
 	def EvaluateTrainLoss(self, session_, threshold_=None):
@@ -156,6 +122,75 @@ class Trainer:
 
 		return meanLoss, threshold, accuracy
 
+
+	def SaveCurrentBatchData(self):
+		batchOfImages = self._batchData.batchOfImages
+		for eachBatch in range(batchOfImages.shape[0]):
+			for eachFrame in range(batchOfImages.shape[1]):
+				cvFormatImage = ImageUtils.ConvertImageFrom_NetInput_to_CV(batchOfImages[eachBatch, eachFrame])
+				pathToSaveImage = os.path.join(	trainSettings.PATH_TO_SAVE_MODEL,
+									"save_epoch_" + str(self._dataManager.epoch) )
+				if not os.path.exists(pathToSaveImage):
+					os.makedirs(pathToSaveImage)
+				fileName = str(self._dataManager.step)+"_"+str(eachBatch)+"_"+str(eachFrame)+".jpg"
+				cv2.imwrite( os.path.join(pathToSaveImage, fileName), cvFormatImage)
+
+
+	def Release(self):
+		self._dataManager.Stop()
+
+	def _backPropergateNet(self, session_):
+		currentLearningRate = trainSettings.GetLearningRate(self._dataManager.epoch, self._dataManager.step)
+
+		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
+				  self._classifier.batchSize : self._batchData.batchSize,
+				  self._classifier.unrolledSize : self._batchData.unrolledSize,
+				  self._classifier.isTraining : True,
+				  self._classifier.trainingStep : self._dataManager.step,
+				  self._classifier.groundTruth : self._batchData.batchOfLabels,
+				  self._learningRatePlaceHolder : currentLearningRate }
+
+		'''
+		    For Training, do not use previous state.  Set the argument:
+		    'listOfPreviousStateValues_'=None to ensure using the zeros
+		    as LSTM state.
+		'''
+		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
+
+		inputFeedDict.update(cellStateFeedDict)
+
+		session_.run( [self._optimzeOp],
+		 	      feed_dict = inputFeedDict )
+
+		if self._dataManager.isNewEpoch:
+			summary = tf.Summary()
+			summary.value.add(tag='LearningRate', simple_value=currentLearningRate)
+			self._summaryWriter.add_summary(summary, self._dataManager.epoch)
+			#self._countOfTrainSteps = 0
+
+			averagedGetBatchTime = np.mean(self._listOfGetBatchTime)
+			print("\t Averaged GetBatch time: ", averagedGetBatchTime)
+			del self._listOfGetBatchTime[:]
+
+
+
+	def _updateNet(self, session_):
+		'''
+		    Some Network has variables that need to be updated after training (e.g. the net with
+		    batch normalization).  After training, following code update such variables.
+		'''
+		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
+				  self._classifier.batchSize : self._batchData.batchSize,
+				  self._classifier.unrolledSize : self._batchData.unrolledSize,
+				  self._classifier.isTraining : False,
+				  self._classifier.trainingStep : self._dataManager.step,
+				  self._classifier.groundTruth : self._batchData.batchOfLabels }
+		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
+
+		inputFeedDict.update(cellStateFeedDict)
+
+		session_.run( [self._classifier.updateOp],
+		 	     feed_dict = inputFeedDict )
 
 	def _drawGradients(self, gradientsInfo_):
 		for eachGradient, eachVariable in gradientsInfo_:

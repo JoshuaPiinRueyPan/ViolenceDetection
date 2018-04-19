@@ -33,8 +33,3 @@ DISPLAY_IMAGE_SIZE = 500
 BORDER_SIZE = 100
 FIGHT_BORDER_COLOR = (0, 0, 255)
 NO_FIGHT_BORDER_COLOR = (0, 255, 0)
-
-from src.net.P1D19_1Fc_1LSTM import *
-
-def GetNetwork(inputImage_, batchSize_, unrolledSize_, isTraining_, trainingStep_):
-	return Net(inputImage_, batchSize_, unrolledSize_, isTraining_, trainingStep_)

@@ -27,11 +27,12 @@ PRETRAIN_MODEL_PATH_NAME = ""
 '''
 NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 
-MAX_TRAINING_EPOCH = 15
+MAX_TRAINING_EPOCH = 20
 
 EPOCHS_TO_START_SAVE_MODEL = 1
-PATH_TO_SAVE_MODEL = "temp/P1D19_1Fc_2LSTM_dataAug"
+PATH_TO_SAVE_MODEL = "temp/dataAug/P1D19_1Fc_1LSTM_36leaky_dropout_noAffine"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
+PERFORM_DATA_AUGMENTATION = True
 
 def GetOptimizer(learningRate_):
 	return tf.train.AdamOptimizer(learning_rate=learningRate_)
@@ -40,11 +41,10 @@ def GetOptimizer(learningRate_):
     Following list three different LearningRate decay methods:
 	1. _stepLearningRate(),
 	2. _exponentialDecayLearningRate()
-	3. _polynomialDecayLearningRate()
 '''
 def _stepLearningRate(currentEpoch_):
-	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
-	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-5), (15, 1e-6), (20, 1e-7) ]
+	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
+	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-6), (15, 1e-7) ]
 
 	for eachPair in reversed(LIST_OF_EPOCH_LEARNING_RATE_PAIRS):
 		if currentEpoch_ >= eachPair[0]:
@@ -59,45 +59,30 @@ def _exponentialDecayLearningRate(currentStep_):
 	    Exponential Decay:
 		learningRate = INITIAL_LEARNING_RATE * DECAY_RATE ^ (currentStep_ / DECAY_STEP)
 	'''
-	INITIAL_LEARNING_RATE = 0.1
+	INITIAL_LEARNING_RATE = 1e-4
 	DECAY_RATE = 0.16
-	NUMBER_OF_EPOCHS_PER_DECAY = 30.0
-	DECAY_STEP = int(dataSettings.NUMBER_OF_BATCHES_PER_EPOCH * NUMBER_OF_EPOCHS_PER_DECAY)
-	learningRate = tf.train.exponential_decay(INITIAL_LEARNING_RATE,
-						  global_step=currentStep_,
-						  decay_step=DECAY_STEP,
-						  decay_rate=DECAY_RATE,
-						  staircase=False,
-						  name='learningRate')
-	return learningRate
 
-def _polynomialDecayLearningRate(currentStep_):
-	'''
-	    Polynomial Decay:
-		global_step = min(global_step, decay_steps)
-		decayed_learning_rate = (learning_rate - end_learning_rate) * (1 - global_step / decay_steps) ^ (power)
-					 + end_learning_rate
-	'''
-	learningRate = tf.train.polynomial_decay( learning_rate=0.1,
-						  global_step=currentStep_,
-						  decay_steps=MAX_STEPS,
-						  end_learning_rate=1e-9,
-						  power=4.0,
-						  cycle=False,
-						  name='learningRate'
-						)
+	NUMBER_OF_BATCHES_PER_EPOCH = 125
+	NUMBER_OF_EPOCHS_PER_DECAY = 1
+	DECAY_STEP = int(NUMBER_OF_BATCHES_PER_EPOCH * NUMBER_OF_EPOCHS_PER_DECAY)
+
+	learningRate = INITIAL_LEARNING_RATE * DECAY_RATE ** (currentStep_ / DECAY_STEP)
+
 	return learningRate
 
 
 def GetLearningRate(currentEpoch_=None, currentStep_=None):
 	return _stepLearningRate(currentEpoch_)
+#	return _exponentialDecayLearningRate(currentStep_=currentStep_)
 
 
 
 #####################
 # Advenced Settings #
 #####################
-DATA_QUEUE_MAX_SIZE = 60
+WAITING_QUEUE_MAX_SIZE = 120
+LOADED_QUEUE_MAX_SIZE = 30
 NUMBER_OF_LOAD_DATA_THREADS=4
-#DATA_QUEUE_MAX_SIZE = 80
+# WAITING_QUEUE_MAX_SIZE = 180
+# LOADED_QUEUE_MAX_SIZE = 80
 #NUMBER_OF_LOAD_DATA_THREADS=4

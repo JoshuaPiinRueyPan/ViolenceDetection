@@ -30,3 +30,4 @@ BATCH_NORMALIZATION_MOVING_AVERAGE_DECAY_RATIO=0.997
 
 # LSTM
 LSTM_INITIALIZER = tf.contrib.layers.variance_scaling_initializer()
+#LSTM_INITIALIZER = tf.orthogonal_initializer()
