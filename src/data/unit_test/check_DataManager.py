@@ -7,8 +7,8 @@ import numpy as np
 import time
 import src.data.ImageUtils as ImageUtils
 
-#PATH_TO_DATA = 'src/data/unit_test/videos.txt'
-PATH_TO_DATA = 'data/val.txt'
+PATH_TO_DATA = 'src/data/unit_test/videos.txt'
+#PATH_TO_DATA = 'data/val.txt'
 #PATH_TO_DATA = 'data/train.txt'
 
 def DrawInfo(targetImage_, listOfInfoToDisplay):
@@ -57,7 +57,8 @@ def Check_TrainDataManager():
 		info = dataManager.GetQueueInfo()
 		print("\t" + info + "\n")
 
-		batchData.batchOfImages = batchData.batchOfImages.reshape([batchData.batchSize * batchData.unrolledSize,
+		batchData.batchOfImages = batchData.batchOfImages.reshape([batchData.batchSize * batchData.unrolledSize
+											       * batchData.groupedSize,
 									   dataSettings.IMAGE_SIZE,
 									   dataSettings.IMAGE_SIZE,
 									   dataSettings.IMAGE_CHANNELS])
@@ -69,7 +70,7 @@ def Check_TrainDataManager():
 			currentImage = batchData.batchOfImages[i]
 			currentImage = ImageUtils.ConvertImageFrom_NetInput_to_CV(currentImage)
 			currentImage = cv2.resize(currentImage, (500, 500))
-			currentLabel = batchData.batchOfLabels[i]
+			currentLabel = batchData.batchOfLabels[ int(i/dataSettings.GROUPED_SIZE) ]
 
 			listOfInfoToDisplay = []
 			listOfInfoToDisplay += listOfBatchInfo
@@ -125,10 +126,12 @@ def Check_EvalDataManager():
 		finishGetBatchTime = time.time()
 		print("GetBatchTime = ", finishGetBatchTime - startGetBatchTime, "\n")
 
-		batchData.batchOfImages = batchData.batchOfImages.reshape([batchData.batchSize * batchData.unrolledSize,
+		batchData.batchOfImages = batchData.batchOfImages.reshape([batchData.batchSize * batchData.unrolledSize
+											       * batchData.groupedSize,
 									   dataSettings.IMAGE_SIZE,
 									   dataSettings.IMAGE_SIZE,
 									   dataSettings.IMAGE_CHANNELS])
+
 		batchData.batchOfLabels = batchData.batchOfLabels.reshape([batchData.batchSize * batchData.unrolledSize,
 									   dataSettings.NUMBER_OF_CATEGORIES])
 
@@ -141,7 +144,8 @@ def Check_EvalDataManager():
 			currentImage = batchData.batchOfImages[i]
 			currentImage = ImageUtils.ConvertImageFrom_NetInput_to_CV(currentImage)
 			currentImage = cv2.resize(currentImage, (500, 500))
-			currentLabel = batchData.batchOfLabels[i]
+			
+			currentLabel = batchData.batchOfLabels[ int(i/dataSettings.GROUPED_SIZE) ]
 
 			listOfInfoToDisplay = []
 			listOfInfoToDisplay += listOfBatchInfo

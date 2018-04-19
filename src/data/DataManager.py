@@ -30,6 +30,7 @@ class BatchData:
 	def __init__(self):
 		self.batchSize = 0
 		self.unrolledSize = 0
+		self.groupedSize = 0
 		self.batchOfImages = None
 		self.batchOfLabels = None
 
@@ -165,6 +166,12 @@ class DataManagerBase:
 				with self._lockForDataList:
 					videoReader = self._listOfData.pop(0)
 
+				try:
+					self._queueForWaitingVideos.put(videoReader, block=False)
+
+				except Full:
+					with self._lockForDataList:
+						self._listOfData = [videoReader] + self._listOfData
 			except IndexError:
 				'''
 				    For the case that WAITING_QUEUE_MAX_SIZE > TOTAL_DATA,
@@ -174,14 +181,7 @@ class DataManagerBase:
 				print("\t\t\t\t All data in self._listOfData is pushed to the WaitingQueue or LoadedQueue.")
 				print("\t\t\t\t You may want to reduce the WAITING_QUEUE_MAX_SIZE...")
 
-			try:
-				self._queueForWaitingVideos.put(videoReader, block=False)
-
-			except Full:
-				with self._lockForDataList:
-					self._listOfData = [videoReader] + self._listOfData
-
-		
+	
 	def appendVideoDataBackToDataList(self, listOfVideoData_):
 		'''
 		    After you get the video from 'self._queueForLoadedVideos'
@@ -243,7 +243,7 @@ class TrainDataManager(DataManagerBase):
 		    since this would be faster then this function return two numpy.array.
 
 		      The 'batchData_.batchOfImages' will be assigned as the shape:
-		    [BATCH_SIZE, UNROLLED_SIZE, w, h, c].
+		    [BATCH_SIZE, UNROLLED_SIZE, GROUPED_SIZE, w, h, c].
 		      The 'batchData_.batchOfLabels' will be assigned as the shape:
 		    [BATCH_SIZE, UNROLLED_SIZE, 2].
 		'''
@@ -262,6 +262,7 @@ class TrainDataManager(DataManagerBase):
 
 		batchData_.batchSize = batchData.batchSize
 		batchData_.unrolledSize = batchData.unrolledSize
+		batchData_.groupedSize = batchData.groupedSize
 		batchData_.batchOfImages = batchData.batchOfImages
 		batchData_.batchOfLabels = batchData.batchOfLabels
 
@@ -320,15 +321,16 @@ class TrainDataManager(DataManagerBase):
 			batchData = BatchData()
 			batchData.batchSize = trainSettings.BATCH_SIZE
 			batchData.unrolledSize = trainSettings.UNROLLED_SIZE
+			batchData.groupedSize = dataSettings.GROUPED_SIZE
 
-			arrayOfBatchImages = np.zeros( [batchData.batchSize, batchData.unrolledSize,
+			arrayOfBatchImages = np.zeros( [batchData.batchSize, batchData.unrolledSize, batchData.groupedSize,
 							dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS],
 							dtype=dataSettings.FLOAT_TYPE )
 			arrayOfBatchLabels = np.zeros( [batchData.batchSize, batchData.unrolledSize, 2],
 							dtype=dataSettings.FLOAT_TYPE )
 
-			for i in range(batchData.batchSize):
-				currentVideo = listOfLoadedVideos[i]
+			for b in range(batchData.batchSize):
+				currentVideo = listOfLoadedVideos[b]
 				frameStartIndex = random.randint(0, 
 								max(0, currentVideo.totalFrames - batchData.unrolledSize) )
 
@@ -338,8 +340,14 @@ class TrainDataManager(DataManagerBase):
 				# Release the video frames
 				currentVideo.ReleaseImages()
 
-				arrayOfBatchImages[i] = arrayOfImages
-				arrayOfBatchLabels[i] = arrayOfLabels
+				for u in range(batchData.unrolledSize):
+					for g in range(batchData.groupedSize):
+						if (u+g) < batchData.unrolledSize:
+							arrayOfBatchImages[b, u, g] = arrayOfImages[u+g]
+						else:
+							arrayOfBatchImages[b, u, g] = arrayOfImages[-1]
+
+				arrayOfBatchLabels[b] = arrayOfLabels
 
 			batchData.batchOfImages = arrayOfBatchImages
 			batchData.batchOfLabels = arrayOfBatchLabels
@@ -413,7 +421,7 @@ class EvaluationDataManager(DataManagerBase):
 		    since this would be faster then this function return two numpy.array.
 
 		      The 'batchData_.batchOfImages' will be assigned as the shape:
-		    [BATCH_SIZE, UNROLLED_SIZE, w, h, c].
+		    [BATCH_SIZE, UNROLLED_SIZE, GROUPED_SIZE, w, h, c].
 		      The 'batchData_.batchOfLabels' will be assigned as the shape:
 		    [BATCH_SIZE, UNROLLED_SIZE, 2].
 		'''
@@ -436,13 +444,21 @@ class EvaluationDataManager(DataManagerBase):
 
 		batchData_.batchSize = 1
 		batchData_.unrolledSize = unrolledSize
-		batchData_.batchOfImages, batchData_.batchOfLabels = self._getDataFromSingleVideo(self._currentVideo,
-												  self._frameCursor, unrolledSize)
-		batchData_.batchOfImages = batchData_.batchOfImages.reshape([batchData_.batchSize,
-									     batchData_.unrolledSize,
-									     dataSettings.IMAGE_SIZE,
-									     dataSettings.IMAGE_SIZE,
-									     dataSettings.IMAGE_CHANNELS])
+		batchData_.groupedSize = dataSettings.GROUPED_SIZE
+		tempImages, batchData_.batchOfLabels = self._getDataFromSingleVideo(self._currentVideo,
+										    self._frameCursor, unrolledSize)
+		batchData_.batchOfImages = np.zeros([batchData_.batchSize, batchData_.unrolledSize, batchData_.groupedSize,
+						     dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS],
+						    dtype=dataSettings.FLOAT_TYPE)
+
+		for b in range(batchData_.batchSize):
+			for u in range(batchData_.unrolledSize):
+				for g in range(batchData_.groupedSize):
+					if (u+g) < batchData_.unrolledSize:
+						batchData_.batchOfImages[b, u, g] = tempImages[u+g]
+					else:
+						batchData_.batchOfImages[b, u, g] = tempImages[-1]
+
 		batchData_.batchOfLabels = batchData_.batchOfLabels.reshape([batchData_.batchSize,
 									     batchData_.unrolledSize,
 									     dataSettings.NUMBER_OF_CATEGORIES])
