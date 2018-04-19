@@ -60,7 +60,8 @@ def _exponentialDecayLearningRate(currentStep_):
 		learningRate = INITIAL_LEARNING_RATE * DECAY_RATE ^ (currentStep_ / DECAY_STEP)
 	'''
 	INITIAL_LEARNING_RATE = 1e-5
-	DECAY_RATE = 0.16
+	#DECAY_RATE = 0.16
+	DECAY_RATE = 0.9
 
 	NUMBER_OF_BATCHES_PER_EPOCH = 125
 	NUMBER_OF_EPOCHS_PER_DECAY = 1

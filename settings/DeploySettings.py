@@ -1,6 +1,7 @@
 import numpy as np
 
-PATH_TO_MODEL_CHECKPOINTS = "data/bestResult/save_epoch_6/ViolenceNet.ckpt"
+#PATH_TO_MODEL_CHECKPOINTS = "data/bestResult/save_epoch_6/ViolenceNet.ckpt"
+PATH_TO_MODEL_CHECKPOINTS = "temp/G2D19_1Fc_1LSTM_noDataAug_expLR/save_epoch_5/ViolenceNet.ckpt"
 
 FIGHT_LABEL = np.array([0.0, 1.0])
 

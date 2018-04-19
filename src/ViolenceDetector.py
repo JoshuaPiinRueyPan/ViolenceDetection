@@ -1,6 +1,7 @@
 import tensorflow as tf		
 import numpy as np
 import settings.DeploySettings as deploySettings
+import settings.DataSettings as dataSettings
 import settings.NetSettings as netSettings
 
 class OutputSmoother:
@@ -71,7 +72,8 @@ class ViolenceDetector:
 		    BGR to RGB.  Moreover, the value should also be converted from [0, 255] to [-1, 1].
 		'''
 		if dataSettings.GROUPED_SIZE == 1:
-			self._groupedInput = netInputImage_
+			self._groupedInput = netInputImage_.reshape(self._inputPlaceholder.shape)
+
 		else:
 			self._updateGroupedInputImages(netInputImage_)
 
@@ -100,10 +102,23 @@ class ViolenceDetector:
 		if len(self._listOfPreviousFrames) == dataSettings.GROUPED_SIZE:
 			# Abandon the unsed frame
 			self._listOfPreviousFrames.pop(0)
-			self._listOfPreviousFrames.append(netInputImage_)
+			self._listOfPreviousFrames.append(newInputImage_)
 
-			self._groupedInput = np.concatenate(self._listOfPreviousFrames)
-			self._groupedInput = self._groupedInput.reshape(self._inputPlaceholder.shape)
+		else:
+			print("This should happend ONLY ONECE!")
+			blackFrame = np.full( shape=[dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS],
+					      fill_value=-1.0,
+					      dtype=dataSettings.FLOAT_TYPE)
+			for i in range(dataSettings.GROUPED_SIZE-1):
+				self._listOfPreviousFrames.append(blackFrame)
+
+			self._listOfPreviousFrames.append(newInputImage_)
+
+
+		self._groupedInput = np.concatenate(self._listOfPreviousFrames)
+		self._groupedInput = self._groupedInput.reshape(self._inputPlaceholder.shape)
+			
+			
 
 	def _recoverModelFromCheckpoints(self):
 		print("Load Model from: ", deploySettings.PATH_TO_MODEL_CHECKPOINTS)

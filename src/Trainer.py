@@ -169,7 +169,7 @@ class Trainer:
 			#self._countOfTrainSteps = 0
 
 			averagedGetBatchTime = np.mean(self._listOfGetBatchTime)
-			print("\t Averaged GetBatch time: ", averagedGetBatchTime)
+			print("Averaged GetBatch time: ", averagedGetBatchTime)
 			del self._listOfGetBatchTime[:]
 
 

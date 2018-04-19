@@ -71,7 +71,7 @@ class Net(NetworkBase):
 
 			out = tf.cond(self._isTraining, lambda: tf.nn.dropout(out, self._DROPOUT_PROB), lambda: out)
 
-			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=2048)
+			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=1024)
 			out, updateVariablesOp1 = BatchNormalization('BN1', out, isConvLayer_=False,
 								     isTraining_=self._isTraining, currentStep_=self._trainingStep)
 
