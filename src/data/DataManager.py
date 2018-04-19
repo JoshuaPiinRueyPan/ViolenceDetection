@@ -24,7 +24,7 @@ TIMEOUT_FOR_WAIT_QUEUE = 10
 '''
    Number of Data to Produce when One data is Consumed.
 '''
-PRODUCE_CONSUME_RATIO = 10
+PRODUCE_CONSUME_RATIO = 5
 
 class BatchData:
 	def __init__(self):

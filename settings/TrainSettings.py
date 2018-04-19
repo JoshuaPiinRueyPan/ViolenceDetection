@@ -81,9 +81,9 @@ def GetLearningRate(currentEpoch_=None, currentStep_=None):
 #####################
 # Advenced Settings #
 #####################
-WAITING_QUEUE_MAX_SIZE = 120
+WAITING_QUEUE_MAX_SIZE = 60
 LOADED_QUEUE_MAX_SIZE = 30
-NUMBER_OF_LOAD_DATA_THREADS=1
+NUMBER_OF_LOAD_DATA_THREADS=2
 # WAITING_QUEUE_MAX_SIZE = 180
 # LOADED_QUEUE_MAX_SIZE = 80
 #NUMBER_OF_LOAD_DATA_THREADS=4
