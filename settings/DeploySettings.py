@@ -1,10 +1,5 @@
 import numpy as np
 
-FLOAT_TYPE = np.float32
-
-INPUT_SIZE = 224
-INPUT_CHANNELS = 3
-
 PATH_TO_MODEL_CHECKPOINTS = "data/bestResult/save_epoch_6/ViolenceNet.ckpt"
 
 FIGHT_LABEL = np.array([0.0, 1.0])

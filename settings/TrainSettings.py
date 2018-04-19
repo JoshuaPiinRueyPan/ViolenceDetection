@@ -30,9 +30,9 @@ NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 MAX_TRAINING_EPOCH = 20
 
 EPOCHS_TO_START_SAVE_MODEL = 1
-PATH_TO_SAVE_MODEL = "temp/dataAug/P1D19_1Fc_1LSTM_36leaky_dropout_noAffine"
+PATH_TO_SAVE_MODEL = "temp/G2D19_1Fc_1LSTM_noDataAug_expLR"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
-PERFORM_DATA_AUGMENTATION = True
+PERFORM_DATA_AUGMENTATION = False
 
 def GetOptimizer(learningRate_):
 	return tf.train.AdamOptimizer(learning_rate=learningRate_)
@@ -59,7 +59,7 @@ def _exponentialDecayLearningRate(currentStep_):
 	    Exponential Decay:
 		learningRate = INITIAL_LEARNING_RATE * DECAY_RATE ^ (currentStep_ / DECAY_STEP)
 	'''
-	INITIAL_LEARNING_RATE = 1e-4
+	INITIAL_LEARNING_RATE = 1e-5
 	DECAY_RATE = 0.16
 
 	NUMBER_OF_BATCHES_PER_EPOCH = 125
@@ -72,8 +72,8 @@ def _exponentialDecayLearningRate(currentStep_):
 
 
 def GetLearningRate(currentEpoch_=None, currentStep_=None):
-	return _stepLearningRate(currentEpoch_)
-#	return _exponentialDecayLearningRate(currentStep_=currentStep_)
+#	return _stepLearningRate(currentEpoch_)
+	return _exponentialDecayLearningRate(currentStep_=currentStep_)
 
 
 
@@ -82,7 +82,17 @@ def GetLearningRate(currentEpoch_=None, currentStep_=None):
 #####################
 WAITING_QUEUE_MAX_SIZE = 120
 LOADED_QUEUE_MAX_SIZE = 30
-NUMBER_OF_LOAD_DATA_THREADS=4
+NUMBER_OF_LOAD_DATA_THREADS=1
 # WAITING_QUEUE_MAX_SIZE = 180
 # LOADED_QUEUE_MAX_SIZE = 80
 #NUMBER_OF_LOAD_DATA_THREADS=4
+
+'''
+    If TrainLoss > LOSS_THRESHOLD_TO_SAVE_DEBUG_IMAGE,
+    and epoch > EPOCH_TO_START_SAVEING_DEBUG_IMAGE,
+    the program will automatically save that batch
+    images.  This offenly used to make sure if the
+    Augmented Data been driven too far.
+'''
+LOSS_THRESHOLD_TO_SAVE_DEBUG_IMAGE = 0.5
+EPOCH_TO_START_SAVEING_DEBUG_IMAGE = 3

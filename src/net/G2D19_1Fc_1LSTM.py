@@ -1,5 +1,6 @@
 import tensorflow as tf
 from src.net.NetBase import *
+from src.layers.LayerHelper import *
 from src.layers.BasicLayers import *
 from src.layers.RNN import *
 import settings.LayerSettings as layerSettings
@@ -16,11 +17,11 @@ class Net(NetworkBase):
 		self._isTraining = isTraining_
 		self._trainingStep = trainingStep_
 	
-		self._DROPOUT_VALUE = 0.5
-		self._NUMBER_OF_NEURONS_IN_LSTM = 512
+		self._DROPOUT_PROB = 0.5
+		self._NUMBER_OF_NEURONS_IN_LSTM = 1024
 
-		if dataSettings.GROUPED_SIZE != 1:
-			errorMessage = __name__ + " only take GROUPED_SIZE = 1;\n"
+		if dataSettings.GROUPED_SIZE != 2:
+			errorMessage = __name__ + " only take GROUPED_SIZE = 2;\n"
 			errorMessage += "However, DataSettings.GROUPED_SIZE = " + str(dataSettings.GROUPED_SIZE)
 			raise ValueError(errorMessage)
 
@@ -39,12 +40,12 @@ class Net(NetworkBase):
 				darknet19_GraphDef.ParseFromString(modelFile.read())
 				listOfOperations = tf.import_graph_def(darknet19_GraphDef,
 									input_map={"input": convInput},
-									return_elements=["BiasAdd_13"])
+#									return_elements=["BiasAdd_13"])
 #									return_elements=["32-leaky"])
 #									return_elements=["BiasAdd_14"])
 #									return_elements=["34-leaky"])
 #									return_elements=["BiasAdd_15"])
-#									return_elements=["36-leaky"])
+									return_elements=["36-leaky"])
 #									return_elements=["BiasAdd_16"])
 #									return_elements=["38-leaky"])
 #									return_elements=["BiasAdd_17"])
@@ -53,12 +54,27 @@ class Net(NetworkBase):
 #									return_elements=["41-convolutional"])
 #									return_elements=["BiasAdd_18"])
 				lastOp = listOfOperations[-1]
-				darknetOutput = lastOp.outputs[0]
+				out = lastOp.outputs[0]
 			
+
 		with tf.name_scope("Fc_ConcatPair"):
-			out = FullyConnectedLayer('Fc1', darknetOutput, numberOfOutputs_=2048)
+			'''
+			    The input shape = [b, u, g, w, h, c]
+			    after Conv, shape = [b*u*g, w', h', c']
+			    here, decouple the Group dimension, shape = [b*u, g * w' * h' * c']
+			'''
+			print("darknetOutput.shape = ", out.shape)
+			numberOfFeatures = CountElementsInOneFeatureMap(out)
+			targetShape = [self._batchSize * self._unrolledSize, dataSettings.GROUPED_SIZE * numberOfFeatures]
+			out = tf.reshape(out, targetShape)
+			print("Decouple Group dimension, shape = ", out.shape)
+
+			out = tf.cond(self._isTraining, lambda: tf.nn.dropout(out, self._DROPOUT_PROB), lambda: out)
+
+			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=2048)
 			out, updateVariablesOp1 = BatchNormalization('BN1', out, isConvLayer_=False,
 								     isTraining_=self._isTraining, currentStep_=self._trainingStep)
+
 			'''
 			    Note: For tf.nn.rnn_cell.dynamic_rnn(), the input shape of [1:] must be explicit.
 			          i.e., one Can't Reshape the out by:
@@ -68,21 +84,14 @@ class Net(NetworkBase):
 			featuresShapeInOneBatch = out.shape[1:].as_list()
 			targetShape = [self._batchSize, self._unrolledSize] + featuresShapeInOneBatch
 			out = tf.reshape(out, targetShape)
+			print("before LSTM, shape = ", out.shape)
+
 
 		out, self._stateTensorOfLSTM_1, self._statePlaceHolderOfLSTM_1 = LSTM(	"LSTM_1",
 											out,
 											self._NUMBER_OF_NEURONS_IN_LSTM,
 											isTraining_=self._isTraining,
-											dropoutProb_=0.5)
-
-		out, self._stateTensorOfLSTM_2, self._statePlaceHolderOfLSTM_2 = LSTM(	"LSTM_2",
-											out,
-											self._NUMBER_OF_NEURONS_IN_LSTM,
-											isTraining_=self._isTraining,
-											dropoutProb_=0.5)
-
-
-
+											dropoutProb_=self._DROPOUT_PROB)
 		with tf.name_scope("Fc_Final"):
 			featuresShapeInOneBatch = out.shape[2:].as_list()
 			targetShape = [self._batchSize * self._unrolledSize] + featuresShapeInOneBatch
@@ -113,7 +122,7 @@ class Net(NetworkBase):
 
 		    See GetFeedDictOfLSTM() method as well
 		'''
-		return [ self._stateTensorOfLSTM_1, self._stateTensorOfLSTM_2 ]
+		return [self._stateTensorOfLSTM_1]
 
 
 	def GetFeedDictOfLSTM(self, BATCH_SIZE_, listOfPreviousStateValues_=None):
@@ -134,21 +143,16 @@ class Net(NetworkBase):
 			    For the first time (or, the first of Unrolls), there's no previous state,
 			    return zeros state.
 			'''
-			initialStateOfLSTM_1 = tuple( [np.zeros([BATCH_SIZE_, self._NUMBER_OF_NEURONS_IN_LSTM])] * 2 )
-			initialStateOfLSTM_1 = tf.nn.rnn_cell.LSTMStateTuple(initialStateOfLSTM_1[0], initialStateOfLSTM_1[1])
+			initialCellState = tuple( [np.zeros([BATCH_SIZE_, self._NUMBER_OF_NEURONS_IN_LSTM])] * 2 )
+			initialCellState = tf.nn.rnn_cell.LSTMStateTuple(initialCellState[0], initialCellState[1])
 
-			initialStateOfLSTM_2 = tuple( [np.zeros([BATCH_SIZE_, self._NUMBER_OF_NEURONS_IN_LSTM])] * 2 )
-			initialStateOfLSTM_2 = tf.nn.rnn_cell.LSTMStateTuple(initialStateOfLSTM_2[0], initialStateOfLSTM_2[1])
-
-			return { self._statePlaceHolderOfLSTM_1 : initialStateOfLSTM_1,
-				 self._statePlaceHolderOfLSTM_2 : initialStateOfLSTM_2 }
+			return {self._statePlaceHolderOfLSTM_1 : initialCellState }
 		else:
-			if len(listOfPreviousStateValues_) != 2:
+			if len(listOfPreviousStateValues_) != 1:
 				errorMessage = "len(listOfPreviousStateValues_) = " + str( len(listOfPreviousStateValues_) )
-				errorMessage += "; However, the expected lenght is 2.\n"
+				errorMessage += "; However, the expected lenght is 1.\n"
 				errorMessage += "\t Do you change the Network Structure, such as Add New LSTM?\n"
 				errorMessage += "\t Or, do you add more tensor to session.run()?\n"
 
-			return { self._statePlaceHolderOfLSTM_1 : listOfPreviousStateValues_[0],
-				 self._statePlaceHolderOfLSTM_2 : listOfPreviousStateValues_[1] }
+			return { self._statePlaceHolderOfLSTM_1 : listOfPreviousStateValues_[0] }
 

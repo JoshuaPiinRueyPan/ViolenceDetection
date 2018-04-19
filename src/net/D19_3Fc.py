@@ -4,6 +4,7 @@ from src.layers.BasicLayers import *
 from src.layers.RNN import *
 import settings.LayerSettings as layerSettings
 import settings.DataSettings as dataSettings
+import settings.TrainSettings as trainSettings
 import numpy as np
 
 DARKNET19_MODEL_PATH = 'data/pretrainModels/darknet19/darknet19.pb'
@@ -17,6 +18,16 @@ class Net(NetworkBase):
 		self._trainingStep = trainingStep_
 	
 		self._DROPOUT_VALUE = 0.5
+
+		if trainSettings.UNROLLED_SIZE != 1:
+			errorMessage = __name__ + " only take UNROLLED_SIZE = 1 (single frame inference);\n"
+			errorMessage += "However, TrainSettings.UNROLLED_SIZE = " + str(trainSettings.UNROLLED_SIZE)
+			raise ValueError(errorMessage)
+
+		if dataSettings.GROUPED_SIZE != 1:
+			errorMessage = __name__ + " only take GROUPED_SIZE = 1;\n"
+			errorMessage += "However, DataSettings.GROUPED_SIZE = " + str(dataSettings.GROUPED_SIZE)
+			raise ValueError(errorMessage)
 
 	def Build(self):
 		darknet19_GraphDef = tf.GraphDef()

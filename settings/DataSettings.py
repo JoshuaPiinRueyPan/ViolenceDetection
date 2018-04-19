@@ -12,7 +12,7 @@ PATH_TO_TEST_SET_CATELOG = 'data/test.txt'
 		  net for one inference.  For example, the P2D19_1Fc_1LSTM take two frame
 		  images as its input.
 '''
-GROUPED_SIZE = 3
+GROUPED_SIZE = 2
 IMAGE_SIZE = 224
 IMAGE_CHANNELS = 3
 

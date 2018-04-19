@@ -6,7 +6,7 @@ import settings.DataSettings as dataSettings
 class Classifier:
 	def __init__(self):
 		self.inputImage = tf.placeholder(dataSettings.FLOAT_TYPE,
-						 shape=[None, None,
+						 shape=[None, None, None,
 							 dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS])
 		self.batchSize = tf.placeholder(tf.int32)
 		self.unrolledSize = tf.placeholder(tf.int32)
@@ -15,7 +15,9 @@ class Classifier:
 		self.groundTruth = tf.placeholder(dataSettings.FLOAT_TYPE, shape=[None, None,
 										  dataSettings.NUMBER_OF_CATEGORIES])
 
-		self.net = netSettings.GetNetwork(self.inputImage, self.batchSize, self.unrolledSize, self.isTraining, self.trainingStep)
+		self.net = netSettings.GetNetwork(self.inputImage,
+						  self.batchSize, self.unrolledSize,
+						  self.isTraining, self.trainingStep)
 
 	def Build(self):
 		'''

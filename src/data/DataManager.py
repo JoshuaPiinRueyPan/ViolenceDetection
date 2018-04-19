@@ -340,12 +340,31 @@ class TrainDataManager(DataManagerBase):
 				# Release the video frames
 				currentVideo.ReleaseImages()
 
+				'''
+				    To stuff the grouped input:
+				    suppose VideoFrames = [a, b, c, d, e, f, g]
+				    G=2: result = [ (0, a), (a, b), (b, c), (c, d), (d, e), (e, f), (f, g) ]
+				    G=3: result = [ (0, 0, a), (0, a, b), (a, b, c), ..., (e, f, g) ]
+
+				'''
+				maxFrameIndex = batchData.unrolledSize - 1
+				maxGroupIndex = batchData.groupedSize - 1
 				for u in range(batchData.unrolledSize):
 					for g in range(batchData.groupedSize):
-						if (u+g) < batchData.unrolledSize:
-							arrayOfBatchImages[b, u, g] = arrayOfImages[u+g]
+						if (u + g - maxGroupIndex) >=0:
+							arrayOfBatchImages[b, u, g] = arrayOfImages[u + g - maxGroupIndex]
 						else:
-							arrayOfBatchImages[b, u, g] = arrayOfImages[-1]
+
+							'''
+							    The BLACK image is '-1.0' in the Network input, since we have transform
+							    the [0, 255] to [-1., 1.].  Therefore, for the artificial frame, If the
+							    BLACK color is desired, then following use np.full(-1), NOT np.zeros().
+							'''
+							arrayOfBatchImages[b, u, g] = np.full( shape=[dataSettings.IMAGE_SIZE,
+												      dataSettings.IMAGE_SIZE,
+												      dataSettings.IMAGE_CHANNELS],
+											       fill_value=-1.0,
+											       dtype=dataSettings.FLOAT_TYPE)
 
 				arrayOfBatchLabels[b] = arrayOfLabels
 
@@ -452,12 +471,23 @@ class EvaluationDataManager(DataManagerBase):
 						    dtype=dataSettings.FLOAT_TYPE)
 
 		for b in range(batchData_.batchSize):
+			maxFrameIndex = batchData_.unrolledSize - 1
+			maxGroupIndex = batchData_.groupedSize - 1
 			for u in range(batchData_.unrolledSize):
 				for g in range(batchData_.groupedSize):
-					if (u+g) < batchData_.unrolledSize:
-						batchData_.batchOfImages[b, u, g] = tempImages[u+g]
+					if (u + g - maxGroupIndex) >=0:
+						batchData_.batchOfImages[b, u, g] = tempImages[u + g - maxGroupIndex]
 					else:
-						batchData_.batchOfImages[b, u, g] = tempImages[-1]
+						'''
+						    The BLACK image is '-1.0' in the Network input, since we have transform
+						    the [0, 255] to [-1., 1.].  Therefore, for the artificial frame, If the
+						    BLACK color is desired, then following use np.full(-1), NOT np.zeros().
+						'''
+						batchData_.batchOfImages[b, u, g] = np.full( shape=[dataSettings.IMAGE_SIZE,
+												    dataSettings.IMAGE_SIZE,
+												    dataSettings.IMAGE_CHANNELS],
+											     fill_value=-1.0,
+											     dtype=dataSettings.FLOAT_TYPE)
 
 		batchData_.batchOfLabels = batchData_.batchOfLabels.reshape([batchData_.batchSize,
 									     batchData_.unrolledSize,

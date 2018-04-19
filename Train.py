@@ -110,7 +110,8 @@ class Main:
 						     threshold_=threshold, accuracy_=accuracy,
 						     duration_=(endEvaluateTime-startEvaluateTime) )
 
-		if (loss >= 0.5)and(self.trainer.currentEpoch > 1):
+		if (loss >= trainSettings.LOSS_THRESHOLD_TO_SAVE_DEBUG_IMAGE)			\
+		   and(self.trainer.currentEpoch > trainSettings.EPOCHS_TO_START_SAVE_MODEL):
 			print("\t\t training loss too high, save batch images to disk, for further examination...")
 			self.trainer.SaveCurrentBatchData()
 

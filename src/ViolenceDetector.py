@@ -26,15 +26,19 @@ class OutputSmoother:
 class ViolenceDetector:
 	def __init__(self):
 		# PlaceHolders
-		self._inputPlaceholder = tf.placeholder(deploySettings.FLOAT_TYPE,
-						  shape=[1, 1,
-							 deploySettings.INPUT_SIZE,
-							 deploySettings.INPUT_SIZE,
-							 deploySettings.INPUT_CHANNELS])
+		self._inputPlaceholder = tf.placeholder(dtype=dataSettings.FLOAT_TYPE,
+							shape=[	1, 1, dataSettings.GROUPED_SIZE,
+								dataSettings.IMAGE_SIZE,
+								dataSettings.IMAGE_SIZE,
+								dataSettings.IMAGE_CHANNELS] )
 		self._batchSizePlaceholder = tf.placeholder(tf.int32)
 		self._unrolledSizePlaceholder = tf.placeholder(tf.int32)
 		self._isTrainingPlaceholder = tf.placeholder(tf.bool)
 		self._trainingStepPlaceholder = tf.placeholder(tf.int64)
+
+		# Previous Frames Holder
+		self._listOfPreviousFrames = []
+		self._groupedInput = None
 
 		# Net
 		self._net = netSettings.GetNetwork(	self._inputPlaceholder,
@@ -61,14 +65,17 @@ class ViolenceDetector:
 	def Detect(self, netInputImage_):
 		'''
 		      The argument 'netInputImage_' should be shape of:
-		    [deploySettings.INPUT_SIZE, deploySettings.INPUT_SIZE, deploySettings.INPUT_CHANNELS].
+		    [dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS]
 		    And the value of each pixel should be in the range of [-1, 1].
 		      Note, if you use OpenCV to read images or videos, you should convert the Color from
 		    BGR to RGB.  Moreover, the value should also be converted from [0, 255] to [-1, 1].
 		'''
-		inputImage = netInputImage_.reshape(self._inputPlaceholder.shape)
+		if dataSettings.GROUPED_SIZE == 1:
+			self._groupedInput = netInputImage_
+		else:
+			self._updateGroupedInputImages(netInputImage_)
 
-		inputFeedDict = { self._inputPlaceholder : inputImage,
+		inputFeedDict = { self._inputPlaceholder : self._groupedInput,
 				  self._batchSizePlaceholder : 1,
 				  self._unrolledSizePlaceholder : 1,
 				  self._isTrainingPlaceholder : False,
@@ -88,6 +95,15 @@ class ViolenceDetector:
 		smoothedOutput = self._outputSmoother.Smooth(isFighting)
 
 		return smoothedOutput
+
+	def _updateGroupedInputImages(self, newInputImage_):
+		if len(self._listOfPreviousFrames) == dataSettings.GROUPED_SIZE:
+			# Abandon the unsed frame
+			self._listOfPreviousFrames.pop(0)
+			self._listOfPreviousFrames.append(netInputImage_)
+
+			self._groupedInput = np.concatenate(self._listOfPreviousFrames)
+			self._groupedInput = self._groupedInput.reshape(self._inputPlaceholder.shape)
 
 	def _recoverModelFromCheckpoints(self):
 		print("Load Model from: ", deploySettings.PATH_TO_MODEL_CHECKPOINTS)
