@@ -29,10 +29,10 @@ NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 
 MAX_TRAINING_EPOCH = 20
 
-EPOCHS_TO_START_SAVE_MODEL = 1
-PATH_TO_SAVE_MODEL = "temp/G2D19_1Fc_1LSTM_noDataAug_expLR"
+EPOCHS_TO_START_SAVE_MODEL = 4
+PATH_TO_SAVE_MODEL = "temp/G2D19_Conv_1LSTM_flip_expLR"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
-PERFORM_DATA_AUGMENTATION = False
+PERFORM_DATA_AUGMENTATION = True
 
 def GetOptimizer(learningRate_):
 	return tf.train.AdamOptimizer(learning_rate=learningRate_)
@@ -42,9 +42,9 @@ def GetOptimizer(learningRate_):
 	1. _stepLearningRate(),
 	2. _exponentialDecayLearningRate()
 '''
-def _stepLearningRate(currentEpoch_):
-	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
-	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-6), (15, 1e-7) ]
+def _stepLearningRate(currentEpoch_, currentStep_):
+	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
+	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-6), (20, 1e-7) ]
 
 	for eachPair in reversed(LIST_OF_EPOCH_LEARNING_RATE_PAIRS):
 		if currentEpoch_ >= eachPair[0]:
@@ -54,7 +54,7 @@ def _stepLearningRate(currentEpoch_):
 	return LIST_OF_EPOCH_LEARNING_RATE_PAIRS[0][1] 
 
 
-def _exponentialDecayLearningRate(currentStep_):
+def _exponentialDecayLearningRate(currentEpoch_, currentStep_):
 	'''
 	    Exponential Decay:
 		learningRate = INITIAL_LEARNING_RATE * DECAY_RATE ^ (currentStep_ / DECAY_STEP)
@@ -73,8 +73,8 @@ def _exponentialDecayLearningRate(currentStep_):
 
 
 def GetLearningRate(currentEpoch_=None, currentStep_=None):
-#	return _stepLearningRate(currentEpoch_)
-	return _exponentialDecayLearningRate(currentStep_=currentStep_)
+#	return _stepLearningRate(currentEpoch_, currentStep_)
+	return _exponentialDecayLearningRate(currentEpoch_, currentStep_=currentStep_)
 
 
 
@@ -87,13 +87,3 @@ NUMBER_OF_LOAD_DATA_THREADS=2
 # WAITING_QUEUE_MAX_SIZE = 180
 # LOADED_QUEUE_MAX_SIZE = 80
 #NUMBER_OF_LOAD_DATA_THREADS=4
-
-'''
-    If TrainLoss > LOSS_THRESHOLD_TO_SAVE_DEBUG_IMAGE,
-    and epoch > EPOCH_TO_START_SAVEING_DEBUG_IMAGE,
-    the program will automatically save that batch
-    images.  This offenly used to make sure if the
-    Augmented Data been driven too far.
-'''
-LOSS_THRESHOLD_TO_SAVE_DEBUG_IMAGE = 0.5
-EPOCH_TO_START_SAVEING_DEBUG_IMAGE = 3

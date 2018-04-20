@@ -1,6 +1,7 @@
-import src.third_party.imageAugmentation.imgaug as libRoot
-from src.third_party.imageAugmentation.imgaug import augmenters as lib
+#import src.third_party.imageAugmentation.imgaug as libRoot
+#from src.third_party.imageAugmentation.imgaug import augmenters as lib
 import numpy as np
+import settings.DataSettings as dataSettings
 
 def _augmentedByAllMethods():
 	sometimes = lambda aug: lib.Sometimes(0.5, aug)
@@ -192,25 +193,87 @@ def _augTest():
 				      )
 	return augmentMethod
 
+def MaybeFlip(batchOfImagesInUINT8_):
+	result = batchOfImagesInUINT8_
+	probability = np.random.random()
+	if probability < dataSettings.PROBABILITY_TO_FLIP_IMAGE:
+		result = batchOfImagesInUINT8_[:, :, ::-1, :]
+
+	return result
+
+def MaybeAdd(batchOfImagesInUINT8_):
+	VALUE = 25
+	result = batchOfImagesInUINT8_
+	probability = np.random.random()
+	if probability < dataSettings.PROBABILITY_TO_ADD_PIXEL_VALUE:
+		probability = np.random.random()
+		if probability < 0.5:
+			probability = np.random.random()
+			result = batchOfImagesInUINT8_ + int(probability*VALUE)
+		else:
+			result = batchOfImagesInUINT8_ - int(probability*VALUE)
+
+	PrintExtrema("before clip", result)
+	result = np.clip(result, a_min=0, a_max=255)
+	PrintExtrema("after clip", result)
+
+	return result
+
+def MaybeMultiply(batchOfImagesInUINT8_):
+	MAX = 1.25
+	MIN = 0.5
+	result = batchOfImagesInUINT8_
+	probability = np.random.random()
+	if probability < dataSettings.PROBABILITY_TO_MULTIPLY:
+		multiplyer = np.random.uniform(low=MIN, high=MAX)
+		result = batchOfImagesInUINT8_ * multiplyer
+
+	result = np.clip(result, a_min=0, a_max=255)
+	return result
+
+def MaybeAddNoise(batchOfImagesInUINT8_):
+	result = batchOfImagesInUINT8_
+	probability = np.random.random()
+	if probability < dataSettings.PROBABILITY_TO_ADD_NOISE:
+		eachImageNoise = np.random.normal(loc=0, scale=8, size=batchOfImagesInUINT8_.shape[1:])
+		result += eachImageNoise.astype(np.uint8)
+
+	result = np.clip(result, a_min=0, a_max=255)
+	return result
+
+def PrintExtrema(title_, batchOfImagesInUINT8_):
+	minValue = np.min(batchOfImagesInUINT8_)
+	maxValue = np.max(batchOfImagesInUINT8_)
+	mean = np.mean(batchOfImagesInUINT8_)
+	print(title_ + "(min, max) = (" + str(minValue) + ", " + str(maxValue) + ")")
+	print("\t mean = ", mean)
 
 def Augment(batchOfImagesInUINT8_):
-	'''
-	    'images' should be either a 4D numpy array of shape (N, height, width, channels)
-	    or a list of 3D numpy arrays, each having shape (height, width, channels).
-	    All images must have numpy's dtype uint8. Values are expected to be in
-	    range 0-255.
-	'''
-	augmentMethod = _augmentedBySelectedMethods()
-	#augmentMethod = _augmentedByAllMethods()
-	#augmentMethod = _augTest()
-	'''
-	    The following Augmenter will augment images in the same way.
-	'''
-	deterministicAugmentMethod = augmentMethod.to_deterministic()
+	result = MaybeFlip(batchOfImagesInUINT8_)
+	result = MaybeAdd(result)
+	#result= MaybeAdd(result)
+	#result = MaybeAddNoise(result)
 
-	batchOfResultImages = np.zeros(batchOfImagesInUINT8_.shape, dtype=batchOfImagesInUINT8_.dtype)
-	for i in range(batchOfImagesInUINT8_.shape[0]):
-		batchOfResultImages[i] = deterministicAugmentMethod.augment_image(batchOfImagesInUINT8_[i])
+	return result
 
-
-	return batchOfResultImages
+#def Augment(batchOfImagesInUINT8_):
+#	'''
+#	    'images' should be either a 4D numpy array of shape (N, height, width, channels)
+#	    or a list of 3D numpy arrays, each having shape (height, width, channels).
+#	    All images must have numpy's dtype uint8. Values are expected to be in
+#	    range 0-255.
+#	'''
+#	augmentMethod = _augmentedBySelectedMethods()
+#	#augmentMethod = _augmentedByAllMethods()
+#	#augmentMethod = _augTest()
+#	'''
+#	    The following Augmenter will augment images in the same way.
+#	'''
+#	deterministicAugmentMethod = augmentMethod.to_deterministic()
+#
+#	batchOfResultImages = np.zeros(batchOfImagesInUINT8_.shape, dtype=batchOfImagesInUINT8_.dtype)
+#	for i in range(batchOfImagesInUINT8_.shape[0]):
+#		batchOfResultImages[i] = deterministicAugmentMethod.augment_image(batchOfImagesInUINT8_[i])
+#
+#
+#	return batchOfResultImages

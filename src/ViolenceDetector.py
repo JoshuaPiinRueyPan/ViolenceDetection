@@ -92,7 +92,7 @@ class ViolenceDetector:
 		prediction = listOfOutputs.pop(0)
 		self._listOfPreviousCellState = listOfOutputs
 
-		isFighting = np.equal(np.argmax(prediction), np.argmax(deploySettings.FIGHT_LABEL))
+		isFighting = np.equal(np.argmax(prediction), np.argmax(dataSettings.FIGHT_LABEL))
 
 		smoothedOutput = self._outputSmoother.Smooth(isFighting)
 

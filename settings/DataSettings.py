@@ -21,6 +21,19 @@ IMAGE_CHANNELS = 3
 '''
 NUMBER_OF_CATEGORIES = 2
 
+#######################
+#  Data Augmentation  #
+#######################
+PROBABILITY_TO_FLIP_IMAGE = 0.5
+PROBABILITY_TO_ADD_PIXEL_VALUE = 1
+PROBABILITY_TO_MULTIPLY = 0.5
+PROBABILITY_TO_ADD_NOISE = 1
+
+#########################
+#  Uncommen Adjustment  #
+#########################
+NO_FIGHT_LABEL = [1., 0.]
+FIGHT_LABEL = [0., 1.]
 
 
 #####################

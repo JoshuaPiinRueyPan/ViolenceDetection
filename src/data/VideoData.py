@@ -4,9 +4,6 @@ import src.data.ImageUtils as ImageUtils
 import settings.DataSettings as dataSettings
 import cv2
 
-NO_FIGHT_LABEL = [1., 0.]
-FIGHT_LABEL = [0., 1.]
-
 class VideoData:
 	def __init__(self, PATH_NAME_TO_VIDEO_, fightStartFrame_, fightEndFrame_):
 		self.name = PATH_NAME_TO_VIDEO_
@@ -36,9 +33,9 @@ class VideoData:
 		self._labels = np.zeros( [int(self.totalFrames), 2] )
 		for frameIndex in range(self.totalFrames):
 			if (frameIndex >= float(fightStartFrame_))and(frameIndex <= float(fightEndFrame_)):
-				self._labels[frameIndex] = np.array( FIGHT_LABEL )  # Fight
+				self._labels[frameIndex] = np.array( dataSettings.FIGHT_LABEL )  # Fight
 			else:
-				self._labels[frameIndex] = np.array( NO_FIGHT_LABEL )  # None-Fight
+				self._labels[frameIndex] = np.array( dataSettings.NO_FIGHT_LABEL )  # None-Fight
 
 		self.hasLabel = True
 

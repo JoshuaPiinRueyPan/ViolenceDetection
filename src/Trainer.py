@@ -123,11 +123,29 @@ class Trainer:
 		return meanLoss, threshold, accuracy
 
 
+	def CalculateAndSaveSummary(self, session_):
+		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
+				  self._classifier.batchSize : self._batchData.batchSize,
+				  self._classifier.unrolledSize : self._batchData.unrolledSize,
+				  self._classifier.isTraining : False,
+				  self._classifier.trainingStep : self._dataManager.step,
+				  self._classifier.groundTruth : self._batchData.batchOfLabels }
+		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
+
+		inputFeedDict.update(cellStateFeedDict)
+
+		summary = session_.run(self._summaryOp, feed_dict = inputFeedDict )
+
+		self._summaryWriter.add_summary(summary, self._dataManager.epoch)
+
+
+
 	def SaveCurrentBatchData(self):
 		batchOfImages = self._batchData.batchOfImages
 		for eachBatch in range(batchOfImages.shape[0]):
 			for eachFrame in range(batchOfImages.shape[1]):
-				cvFormatImage = ImageUtils.ConvertImageFrom_NetInput_to_CV(batchOfImages[eachBatch, eachFrame])
+				# Note: for the Group Dimension, we ONLY need one image, therefore, pick the last group-index image.
+				cvFormatImage = ImageUtils.ConvertImageFrom_NetInput_to_CV(batchOfImages[eachBatch, eachFrame, -1])
 				pathToSaveImage = os.path.join(	trainSettings.PATH_TO_SAVE_MODEL,
 									"save_epoch_" + str(self._dataManager.epoch) )
 				if not os.path.exists(pathToSaveImage):

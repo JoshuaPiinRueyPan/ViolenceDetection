@@ -1,5 +1,5 @@
 import tensorflow as tf
-import src.data.VideoData as VideoData
+import settings.DataSettings as dataSettings
 import numpy as np
 
 class VideosAccuracyCalculator:
@@ -91,7 +91,7 @@ class VideosAccuracyCalculator:
 		maxFightCount = 0
 		currentFightCount = 0
 		for eachFramePrediction in singleVideoPredictions_:
-			if np.argmax(eachFramePrediction) == np.argmax(VideoData.FIGHT_LABEL):
+			if np.argmax(eachFramePrediction) == np.argmax(dataSettings.FIGHT_LABEL):
 				currentFightCount += 1
 
 			else:

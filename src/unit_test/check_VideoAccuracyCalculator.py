@@ -1,28 +1,29 @@
+#!/usr/bin/python3
 from src.AccuracyCalculator import *
 import tensorflow as tf
 import time
 import numpy as np
-import src.data.VideoData as VideoData
+import settings.DataSettings as dataSettings
 
 # maxCount = 8
 netPrediction_1 = np.array( [[ [0.9, 0.1], [0.7, 0.3], [0.6, 0.4], [0.4, 0.6], [0.3, 0.7],
 			    [0.2, 0.8], [0.1, 0.9], [0.2, 0.8], [0.1, 0.9], [0.2, 0.8], [0.3, 0.7]  ]] )
-label_1 = np.array( [ [VideoData.FIGHT_LABEL] * netPrediction_1.shape[0] ] )
+label_1 = np.array( [ [dataSettings.FIGHT_LABEL] * netPrediction_1.shape[0] ] )
 
 # maxCount = 4
 netPrediction_2 = np.array( [[ [0.9, 0.1], [0.7, 0.3], [0.3, 0.7], [0.4, 0.6], [0.3, 0.7],
 			    [0.9, 0.1], [0.9, 0.1], [0.2, 0.8], [0.1, 0.9], [0.2, 0.8], [0.3, 0.7]  ]] )
-label_2 = np.array( [ [VideoData.FIGHT_LABEL] * netPrediction_2.shape[0] ] )
+label_2 = np.array( [ [dataSettings.FIGHT_LABEL] * netPrediction_2.shape[0] ] )
 
 # maxCount = 2
 netPrediction_3 = np.array( [[ [0.9, 0.1], [0.3, 0.7], [0.9, 0.1], [0.4, 0.6], [0.8, 0.2],
 			    [0.1, 0.9], [0.9, 0.1], [0.2, 0.8], [0.1, 0.9]  ]] )
-label_3 = np.array( [ [VideoData.NO_FIGHT_LABEL] * netPrediction_3.shape[0] ] )
+label_3 = np.array( [ [dataSettings.NO_FIGHT_LABEL] * netPrediction_3.shape[0] ] )
 
 # maxCount = 6
 netPrediction_4 = np.array( [[ [0.9, 0.1], [0.3, 0.7], [0.9, 0.1], [0.4, 0.6], [0.3, 0.7],
 			    [0.1, 0.9], [0.1, 0.9], [0.2, 0.8], [0.1, 0.9], [0.7, 0.3]  ]] )
-label_4 = np.array( [ [VideoData.NO_FIGHT_LABEL] * netPrediction_4.shape[0] ] )
+label_4 = np.array( [ [dataSettings.NO_FIGHT_LABEL] * netPrediction_4.shape[0] ] )
 
 
 def Check_CalculateAccuracy():
@@ -114,9 +115,9 @@ def Check_ProcessingTime():
 
 		isFightLabel = np.random.rand() >= 0.5
 		if isFightLabel:
-			labelOfAllVideos[i, :, :] = np.tile(VideoData.FIGHT_LABEL, [40, 1])
+			labelOfAllVideos[i, :, :] = np.tile(dataSettings.FIGHT_LABEL, [40, 1])
 		else:
-			labelOfAllVideos[i, :, :] = np.tile(VideoData.NO_FIGHT_LABEL, [40, 1])
+			labelOfAllVideos[i, :, :] = np.tile(dataSettings.NO_FIGHT_LABEL, [40, 1])
 		
 
 	startAppendTime = time.time()

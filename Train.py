@@ -14,10 +14,13 @@ class Main:
 		# Trainer, Evaluator
 		print("Reading Training set...")
 		self.trainer = Trainer(classifier)
+		self.trainEvaluator = Evaluator("train", dataSettings.PATH_TO_TRAIN_SET_CATELOG, classifier)
 		print("\t Done.\n")
+
 		print("Reading Validation set...")
 		self.validationEvaluator = Evaluator("validation", dataSettings.PATH_TO_VAL_SET_CATELOG, classifier)
 		print("\t Done.\n")
+
 		print("Reading Test set...")
 		self.testEvaluator = Evaluator("test", dataSettings.PATH_TO_TEST_SET_CATELOG, classifier)
 		print("\t Done.\n")
@@ -25,6 +28,7 @@ class Main:
 		# Summary
 		summaryOp = tf.summary.merge_all()
 		self.trainer.SetMergedSummaryOp(summaryOp)
+		self.trainEvaluator.SetMergedSummaryOp(summaryOp)
 		self.validationEvaluator.SetMergedSummaryOp(summaryOp)
 		self.bestThreshold = None
 		self.testEvaluator.SetMergedSummaryOp(summaryOp)
@@ -69,11 +73,9 @@ class Main:
 				self.printTimeMeasurement()
 				self.trainer.PauseDataLoading()
 				self.evaluateValidationSetAndPrint(self.trainer.currentEpoch)
-				self.evaluateTrainingSetAndPrint()
+				self.evaluateTrainingSetAndPrint(self.trainer.currentEpoch)
 				self.evaluateTestSetAndPrint(self.trainer.currentEpoch)
 				self.trainer.ContinueDataLoading()
-				print("\t TrainQueue info: " + self.trainer._dataManager.GetQueueInfo())
-				print()
 
 				self.resetTimeMeasureVariables()
 
@@ -81,6 +83,7 @@ class Main:
 					self.saveCheckpoint(self.trainer.currentEpoch)
 		print("Optimization finished.")
 		self.trainer.Release()
+		self.trainEvaluator.Release()
 		self.validationEvaluator.Release()
 		self.testEvaluator.Release()
 
@@ -96,24 +99,24 @@ class Main:
 			modelLoader = tf.train.Saver(variablesToBeRecovered)
 			modelLoader.restore(self.session, trainSettings.PRETRAIN_MODEL_PATH_NAME)
 
-	def evaluateTrainingSetAndPrint(self):
+	def evaluateTrainingSetAndPrint(self, currentEpoch_):
+		'''
+		    Since the BATCH_SIZE may be small (= 4 in my case), its BatchLoss or BatchAccuracy
+		    may be fluctuated.  Calculate the whole Training Loss instead.
+		    Note: If one want to calculate the BatchLoss ONLY, use Trainer.EvaluateTrainLoss().
+		'''
 		startEvaluateTime = time.time()
-		loss, threshold, accuracy = self.trainer.EvaluateTrainLoss(self.session, self.bestThreshold)
+		loss, threshold, accuracy = self.trainEvaluator.Evaluate(self.session,
+									 currentEpoch_=currentEpoch_,
+									 threshold_=self.bestThreshold)
 		endEvaluateTime = time.time()
 
-		if self.bestThreshold == None:
-			self.printCalculationResults(jobType_='train', loss_=loss, isThresholdOptimized_=True,
-						     threshold_=threshold, accuracy_=accuracy,
-						     duration_=(endEvaluateTime-startEvaluateTime) )
-		else:
-			self.printCalculationResults(jobType_='train', loss_=loss, isThresholdOptimized_=False,
-						     threshold_=threshold, accuracy_=accuracy,
-						     duration_=(endEvaluateTime-startEvaluateTime) )
+		# Gradients info could be saved by following method.
+		self.trainer.CalculateAndSaveSummary(self.session)
 
-		if (loss >= trainSettings.LOSS_THRESHOLD_TO_SAVE_DEBUG_IMAGE)			\
-		   and(self.trainer.currentEpoch > trainSettings.EPOCHS_TO_START_SAVE_MODEL):
-			print("\t\t training loss too high, save batch images to disk, for further examination...")
-			self.trainer.SaveCurrentBatchData()
+		self.printCalculationResults(jobType_='train', loss_=loss, isThresholdOptimized_=False,
+					     threshold_=threshold, accuracy_=accuracy,
+					     duration_=(endEvaluateTime-startEvaluateTime) )
 
 
 	def calculateValidationBeforeTraining(self):
@@ -164,8 +167,6 @@ class Main:
 		print("\t\t duration: ", "{0:.4f}".format(timeForTrainOneEpoch), "s/epoch")
 		averagedTrainTime = timeForTrainOneEpoch / self._trainCountInOneEpoch
 		print("\t\t average: ", "{0:.4f}".format(averagedTrainTime), "s/batch")
-		print()
-		print("\t TrainQueue info: " + self.trainer._dataManager.GetQueueInfo())
 		print()
 
 	def resetTimeMeasureVariables(self):
