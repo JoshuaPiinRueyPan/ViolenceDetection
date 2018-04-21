@@ -16,12 +16,6 @@ else:
 	from queue import *
 
 '''
-    When user call DataManager.Stop(), the loading threads
-    may keep runing because of the Blocked Queue.get()
-    or Blocked Queue.put(), thus add the following timeout.
-'''
-TIMEOUT_FOR_WAIT_QUEUE = 10
-'''
    Number of Data to Produce when One data is Consumed.
 '''
 PRODUCE_CONSUME_RATIO = 10
@@ -255,12 +249,13 @@ class TrainDataManager(DataManagerBase):
 		self._isNewEpoch = False
 
 		try:
-			batchData = self._queueForLoadedVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+			batchData = self._queueForLoadedVideos.get(block=True,
+								   timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 
 		except Empty:
 			errorMessage = "In TrainDataManager:"
 			errorMessage += "\t Unable to get batch data in duration: "
-			errorMessage += TIMEOUT_FOR_WAIT_QUEUE + "(s)\n"
+			errorMessage += str(dataSettings.TIMEOUT_FOR_WAIT_QUEUE) + "(s)\n"
 			errorMessage += "\t TrainQueue info:\n"
 			errorMessage += self.GetQueueInfo()
 			raise TimeoutError(errorMessage)
@@ -301,7 +296,8 @@ class TrainDataManager(DataManagerBase):
 			listOfLoadedVideos = []
 			for i in range(trainSettings.BATCH_SIZE):
 				try:
-					videoReader = self._queueForWaitingVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+					videoReader = self._queueForWaitingVideos.get(block=True,
+										      timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 
 				except Empty:
 					for eachVideoReader in listOfLoadedVideos:
@@ -313,7 +309,7 @@ class TrainDataManager(DataManagerBase):
 							print("\t\t\t\t    Note: You may want to reduce the thread size.")
 						eachVideoReader.ReleaseImages()
 						self._queueForWaitingVideos.put(eachVideoReader, block=True,
-										timeout=TIMEOUT_FOR_WAIT_QUEUE)
+										timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 
 					raise TimeoutError
 
@@ -378,7 +374,7 @@ class TrainDataManager(DataManagerBase):
 			batchData.batchOfLabels = arrayOfBatchLabels
 
 			try:
-				self._queueForLoadedVideos.put(batchData, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+				self._queueForLoadedVideos.put(batchData, block=True, timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 				self.appendVideoDataBackToDataList(listOfLoadedVideos)
 
 			except Full:
@@ -389,7 +385,7 @@ class TrainDataManager(DataManagerBase):
 					while len(listOfLoadedVideos) > 0:
 						eachVideoReader = listOfLoadedVideos.pop(0)
 						self._queueForWaitingVideos.put(eachVideoReader, block=True,
-										timeout=TIMEOUT_FOR_WAIT_QUEUE)
+										timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 						if IS_DEBUG_MODE:
 							print("\t\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
 							      ")...")
@@ -457,12 +453,13 @@ class EvaluationDataManager(DataManagerBase):
 		self._isNewVideo = False
 		if self._currentVideo == None:
 			try:
-				self._currentVideo = self._queueForLoadedVideos.get(block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+				self._currentVideo = self._queueForLoadedVideos.get(block=True,
+										    timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 
 			except Empty:
 				errorMessage = "In EvaluationDataManager:"
 				errorMessage += "\t Unable to get batch data in duration: "
-				errorMessage += TIMEOUT_FOR_WAIT_QUEUE + "(s)\n"
+				errorMessage += dataSettings.TIMEOUT_FOR_WAIT_QUEUE + "(s)\n"
 				errorMessage += "\t TrainQueue info:\n"
 				errorMessage += self.GetQueueInfo()
 				raise TimeoutError(errorMessage)
@@ -537,7 +534,8 @@ class EvaluationDataManager(DataManagerBase):
 			videoReader.LoadVideoImages()
 
 			try:
-				self._queueForLoadedVideos.put(videoReader, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+				self._queueForLoadedVideos.put(videoReader, block=True,
+								timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 
 			except:
 				videoReader.ReleaseImages()
@@ -545,7 +543,8 @@ class EvaluationDataManager(DataManagerBase):
 					print("\t\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
 					      "); stuff VideoReader back to WaitingQueue.")
 				try:
-					self._queueForWaitingVideos.put(videoReader, block=True, timeout=TIMEOUT_FOR_WAIT_QUEUE)
+					self._queueForWaitingVideos.put(videoReader, block=True,
+									timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 
 				except Full:
 					if IS_DEBUG_MODE:

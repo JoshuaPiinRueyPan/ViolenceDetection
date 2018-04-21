@@ -28,10 +28,9 @@ class Trainer:
 			totalLossOp = self._classifier.crossEntropyLossOp
 
 		optimizer = trainSettings.GetOptimizer(self._learningRatePlaceHolder)
-		gradients = optimizer.compute_gradients(totalLossOp)
-		self._drawGradients(gradients)
-		self._optimzeOp = optimizer.apply_gradients(gradients)
-		#self._countOfTrainSteps = 0
+		listOfGradients = optimizer.compute_gradients(totalLossOp)
+		listOfClippedGradients = self._clipGradientsAndDraw(listOfGradients)
+		self._optimzeOp = optimizer.apply_gradients(listOfClippedGradients)
 
 		self._summaryWriter = tf.summary.FileWriter(trainSettings.PATH_TO_SAVE_MODEL+"/train")
 
@@ -63,9 +62,6 @@ class Trainer:
 		self._dataManager.Continue()
 
 	def PrepareNewBatchData(self):
-		#print("step = ", self._countOfTrainSteps, end='')
-		#print("\t TrainQueue info: " + self._dataManager.GetQueueInfo())
-
 		self._batchData = BatchData()
 
 		startGetBatchTime = time.time()
@@ -75,7 +71,6 @@ class Trainer:
 		endGetBatchTime = time.time()
 		self._listOfGetBatchTime.append(endGetBatchTime - startGetBatchTime)
 
-		#self._countOfTrainSteps += 1
 
 	def Train(self, tf_session_):
 		self._backPropergateNet(tf_session_)
@@ -97,10 +92,8 @@ class Trainer:
 
 		inputFeedDict.update(cellStateFeedDict)
 
-		batchLoss, predictions, summaryValue = session_.run( [self._classifier.crossEntropyLossOp,
-								      self._classifier.predictionsOp,
-								      self._summaryOp],
-			     					     feed_dict = inputFeedDict )
+		batchLoss, predictions = session_.run( [self._classifier.crossEntropyLossOp, self._classifier.predictionsOp],
+						       feed_dict = inputFeedDict )
 		meanLoss = np.mean(batchLoss)
 
 		self._accuracyCalculator.AppendNetPredictions(predictions, self._batchData.batchOfLabels)
@@ -114,29 +107,12 @@ class Trainer:
 
 
 		summary = tf.Summary()
-		summary.ParseFromString(summaryValue)
 		summary.value.add(tag='loss', simple_value=meanLoss)
 		summary.value.add(tag='accuracy', simple_value=accuracy)
 
 		self._summaryWriter.add_summary(summary, self._dataManager.epoch)
 
 		return meanLoss, threshold, accuracy
-
-
-	def CalculateAndSaveSummary(self, session_):
-		inputFeedDict = { self._classifier.inputImage : self._batchData.batchOfImages,
-				  self._classifier.batchSize : self._batchData.batchSize,
-				  self._classifier.unrolledSize : self._batchData.unrolledSize,
-				  self._classifier.isTraining : False,
-				  self._classifier.trainingStep : self._dataManager.step,
-				  self._classifier.groundTruth : self._batchData.batchOfLabels }
-		cellStateFeedDict = self._classifier.net.GetFeedDictOfLSTM(self._batchData.batchSize, listOfPreviousStateValues_=None)
-
-		inputFeedDict.update(cellStateFeedDict)
-
-		summary = session_.run(self._summaryOp, feed_dict = inputFeedDict )
-
-		self._summaryWriter.add_summary(summary, self._dataManager.epoch)
 
 
 
@@ -177,18 +153,24 @@ class Trainer:
 
 		inputFeedDict.update(cellStateFeedDict)
 
-		session_.run( [self._optimzeOp],
-		 	      feed_dict = inputFeedDict )
-
 		if self._dataManager.isNewEpoch:
+
+			_, summaryValue = session_.run( [self._optimzeOp, self._summaryOp],
+							feed_dict = inputFeedDict )
+
 			summary = tf.Summary()
+			summary.ParseFromString(summaryValue)
 			summary.value.add(tag='LearningRate', simple_value=currentLearningRate)
 			self._summaryWriter.add_summary(summary, self._dataManager.epoch)
-			#self._countOfTrainSteps = 0
 
 			averagedGetBatchTime = np.mean(self._listOfGetBatchTime)
 			print("Averaged GetBatch time: ", averagedGetBatchTime)
 			del self._listOfGetBatchTime[:]
+
+		else:
+			session_.run( [self._optimzeOp],
+				      feed_dict = inputFeedDict )
+
 
 
 
@@ -210,8 +192,25 @@ class Trainer:
 		session_.run( [self._classifier.updateOp],
 		 	     feed_dict = inputFeedDict )
 
-	def _drawGradients(self, gradientsInfo_):
+	def _clipGradientsAndDraw(self, gradientsInfo_):
+		listOfClippedGradients = []
 		for eachGradient, eachVariable in gradientsInfo_:
 			if eachGradient is not None:
+				clippedGradient = tf.clip_by_value(eachGradient,
+								  trainSettings.MIN_GRADIENT_VALUE,
+								  trainSettings.MAX_GRADIENT_VALUE)
+				listOfClippedGradients.append( (clippedGradient, eachVariable) )
+
 				tf.summary.histogram(eachVariable.op.name + '/gradient', eachGradient)
+				tf.summary.histogram(eachVariable.op.name + '/clipped-gradient', clippedGradient)
+
+			else:
+				listOfClippedGradients.append( (eachGradient, eachVariable) )
+
+		return listOfClippedGradients
+
+
+
+
+
 

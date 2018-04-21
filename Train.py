@@ -111,9 +111,6 @@ class Main:
 									 threshold_=self.bestThreshold)
 		endEvaluateTime = time.time()
 
-		# Gradients info could be saved by following method.
-		self.trainer.CalculateAndSaveSummary(self.session)
-
 		self.printCalculationResults(jobType_='train', loss_=loss, isThresholdOptimized_=False,
 					     threshold_=threshold, accuracy_=accuracy,
 					     duration_=(endEvaluateTime-startEvaluateTime) )
@@ -124,7 +121,7 @@ class Main:
 			print("Validation before Training ", "======================================"
 					+ "======================================"
 					+ "======================================")
-			self.calculateValidationAndPrint(currentEpoch_=0)
+			self.evaluateValidationSetAndPrint(currentEpoch_=0)
 
 	def evaluateValidationSetAndPrint(self, currentEpoch_):
 		startEvaluateTime = time.time()

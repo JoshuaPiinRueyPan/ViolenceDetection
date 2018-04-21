@@ -250,7 +250,7 @@ def PrintExtrema(title_, batchOfImagesInUINT8_):
 
 def Augment(batchOfImagesInUINT8_):
 	result = MaybeFlip(batchOfImagesInUINT8_)
-	result = MaybeAdd(result)
+	#result = MaybeAdd(result)
 	#result= MaybeAdd(result)
 	#result = MaybeAddNoise(result)
 

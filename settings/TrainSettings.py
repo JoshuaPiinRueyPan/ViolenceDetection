@@ -14,12 +14,12 @@ import settings.DataSettings as dataSettings
       The output of the total network will be the shape:
     [BATCH_SIZE, UNROLLED_SIZE, NUMBER_OF_CATEGORIES]
 '''
-BATCH_SIZE = 4
-UNROLLED_SIZE = 40
-#BATCH_SIZE = 40
-#UNROLLED_SIZE = 1
+#BATCH_SIZE = 4
+#UNROLLED_SIZE = 40
+BATCH_SIZE = 40
+UNROLLED_SIZE = 4
 
-PRETRAIN_MODEL_PATH_NAME = ""
+PRETRAIN_MODEL_PATH_NAME = "temp/progress_unrolls/G2D19_1Fc_1LSTM_u2_flip_stair/save_epoch_4/ViolenceNet.ckpt"
 
 '''
     If one want to finetune, insert the LastLayer to the following list.
@@ -27,10 +27,10 @@ PRETRAIN_MODEL_PATH_NAME = ""
 '''
 NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 
-MAX_TRAINING_EPOCH = 20
+MAX_TRAINING_EPOCH = 10
 
-EPOCHS_TO_START_SAVE_MODEL = 4
-PATH_TO_SAVE_MODEL = "temp/G2D19_Conv_1LSTM_flip_expLR"
+EPOCHS_TO_START_SAVE_MODEL = 1
+PATH_TO_SAVE_MODEL = "temp/progress_unrolls/G2D19_1Fc_1LSTM_u4_flip_stair"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
 PERFORM_DATA_AUGMENTATION = True
 
@@ -43,7 +43,8 @@ def GetOptimizer(learningRate_):
 	2. _exponentialDecayLearningRate()
 '''
 def _stepLearningRate(currentEpoch_, currentStep_):
-	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
+	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
+	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-5), (5, 1e-6) ]
 	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-6), (20, 1e-7) ]
 
 	for eachPair in reversed(LIST_OF_EPOCH_LEARNING_RATE_PAIRS):
@@ -73,17 +74,20 @@ def _exponentialDecayLearningRate(currentEpoch_, currentStep_):
 
 
 def GetLearningRate(currentEpoch_=None, currentStep_=None):
-#	return _stepLearningRate(currentEpoch_, currentStep_)
-	return _exponentialDecayLearningRate(currentEpoch_, currentStep_=currentStep_)
+	return _stepLearningRate(currentEpoch_, currentStep_)
+#	return _exponentialDecayLearningRate(currentEpoch_, currentStep_=currentStep_)
 
 
 
 #####################
 # Advenced Settings #
 #####################
-WAITING_QUEUE_MAX_SIZE = 60
-LOADED_QUEUE_MAX_SIZE = 30
-NUMBER_OF_LOAD_DATA_THREADS=2
-# WAITING_QUEUE_MAX_SIZE = 180
-# LOADED_QUEUE_MAX_SIZE = 80
-#NUMBER_OF_LOAD_DATA_THREADS=4
+#WAITING_QUEUE_MAX_SIZE = 60
+#LOADED_QUEUE_MAX_SIZE = 30
+#NUMBER_OF_LOAD_DATA_THREADS=2
+WAITING_QUEUE_MAX_SIZE = 180
+LOADED_QUEUE_MAX_SIZE = 80
+NUMBER_OF_LOAD_DATA_THREADS=4
+
+MAX_GRADIENT_VALUE = 1.0
+MIN_GRADIENT_VALUE = -1.0

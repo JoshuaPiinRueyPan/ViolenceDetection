@@ -7,9 +7,9 @@ import numpy as np
 import time
 import src.data.ImageUtils as ImageUtils
 
-PATH_TO_DATA = 'src/data/unit_test/videos.txt'
+#PATH_TO_DATA = 'src/data/unit_test/videos.txt'
 #PATH_TO_DATA = 'data/val.txt'
-#PATH_TO_DATA = 'data/train.txt'
+PATH_TO_DATA = 'data/train.txt'
 
 def DrawInfo(targetImage_, listOfInfoToDisplay):
 	xLeft = 0
