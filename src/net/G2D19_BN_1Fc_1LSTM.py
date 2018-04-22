@@ -1,5 +1,6 @@
 import tensorflow as tf
 from src.net.NetBase import *
+from src.layers.LayerHelper import *
 from src.layers.BasicLayers import *
 from src.layers.RNN import *
 import settings.LayerSettings as layerSettings
@@ -21,8 +22,8 @@ class Net(NetworkBase):
 
 		self._dictOfInterestedActivations = {}
 
-		if dataSettings.GROUPED_SIZE != 1:
-			errorMessage = __name__ + " only take GROUPED_SIZE = 1;\n"
+		if dataSettings.GROUPED_SIZE != 2:
+			errorMessage = __name__ + " only take GROUPED_SIZE = 2;\n"
 			errorMessage += "However, DataSettings.GROUPED_SIZE = " + str(dataSettings.GROUPED_SIZE)
 			raise ValueError(errorMessage)
 
@@ -56,14 +57,30 @@ class Net(NetworkBase):
 #									return_elements=["BiasAdd_18"])
 				lastOp = listOfOperations[-1]
 				out = lastOp.outputs[0]
+				self._dictOfInterestedActivations['DarkNet'] = out
+				out, updateOp1 = BatchNormalization('BN1', out, isConvLayer_=True,
+								     isTraining_=self._isTraining, currentStep_=self._trainingStep)
+				self._dictOfInterestedActivations['BN1'] = out
 			
 
 		with tf.name_scope("Fc_ConcatPair"):
-			out = tf.cond(self._isTraining, lambda: tf.nn.dropout(out, self._DROPOUT_PROB), lambda: out)
+			'''
+			    The input shape = [b, u, g, w, h, c]
+			    after Conv, shape = [b*u*g, w', h', c']
+			    here, decouple the Group dimension, shape = [b*u, g * w' * h' * c']
+			'''
+			print("darknetOutput.shape = ", out.shape)
+			numberOfFeatures = CountElementsInOneFeatureMap(out)
+			targetShape = [self._batchSize * self._unrolledSize, dataSettings.GROUPED_SIZE * numberOfFeatures]
+			out = tf.reshape(out, targetShape)
+			print("Decouple Group dimension, shape = ", out.shape)
 
-			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=2048)
-			out, updateVariablesOp1 = BatchNormalization('BN1', out, isConvLayer_=False,
-								     isTraining_=self._isTraining, currentStep_=self._trainingStep)
+
+			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=1024)
+			out, updateOp2 = BatchNormalization('BN2', out, isConvLayer_=False,
+							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
+
+			self._dictOfInterestedActivations['Fc1_BN'] = out
 
 			'''
 			    Note: For tf.nn.rnn_cell.dynamic_rnn(), the input shape of [1:] must be explicit.
@@ -74,7 +91,7 @@ class Net(NetworkBase):
 			featuresShapeInOneBatch = out.shape[1:].as_list()
 			targetShape = [self._batchSize, self._unrolledSize] + featuresShapeInOneBatch
 			out = tf.reshape(out, targetShape)
-
+			print("before LSTM, shape = ", out.shape)
 
 
 		out, self._stateTensorOfLSTM_1, self._statePlaceHolderOfLSTM_1 = LSTM(	"LSTM_1",
@@ -82,6 +99,9 @@ class Net(NetworkBase):
 											self._NUMBER_OF_NEURONS_IN_LSTM,
 											isTraining_=self._isTraining,
 											dropoutProb_=self._DROPOUT_PROB)
+
+		self._dictOfInterestedActivations['LSTM'] = out
+
 		with tf.name_scope("Fc_Final"):
 			featuresShapeInOneBatch = out.shape[2:].as_list()
 			targetShape = [self._batchSize * self._unrolledSize] + featuresShapeInOneBatch
@@ -89,7 +109,7 @@ class Net(NetworkBase):
 			out = FullyConnectedLayer('Fc3', out, numberOfOutputs_=dataSettings.NUMBER_OF_CATEGORIES)
 			self._logits = tf.reshape(out, [self._batchSize, self._unrolledSize, -1])
 
-		self._updateOp = tf.group(updateVariablesOp1)
+		self._updateOp = tf.group(updateOp1, updateOp2)
 
 	@property
 	def logitsOp(self):

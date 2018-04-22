@@ -16,6 +16,15 @@ class NetworkBase:
 	def updateOp(self):
 		pass
 
+	@property
+	def dictionaryOfInterestedActivations(self):
+		'''
+		    The implementations must define 'self._dictOfInterestedActivations'.
+		    If there's no interested activations, simply:
+			self._dictOfInterestedActivations = {}
+		'''
+		return self._dictOfInterestedActivations
+
 
 	'''
 	    The following two functions: 'GetListOfStatesTensorInLSTMs()' & 'GetLSTM_Feed_Dict()'

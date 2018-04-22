@@ -136,27 +136,15 @@ class Main:
 					     duration_=(endEvaluateTime-startEvaluateTime) )
 
 	def evaluateTestSetAndPrint(self, currentEpoch_):
-		if (currentEpoch_!=0)and(currentEpoch_ % 3) == 0:
-			startEvaluateTime = time.time()
-			loss, threshold, accuracy = self.testEvaluator.Evaluate(self.session,
-									   currentEpoch_=currentEpoch_,
-									   threshold_=None)
-			endEvaluateTime = time.time()
+		startEvaluateTime = time.time()
+		loss, threshold, accuracy = self.testEvaluator.Evaluate(self.session,
+							   currentEpoch_=currentEpoch_,
+							   threshold_=self.bestThreshold)
+		endEvaluateTime = time.time()
 
-			self.printCalculationResults(jobType_='test', loss_=loss, isThresholdOptimized_=True,
-						     threshold_=threshold, accuracy_=accuracy,
-						     duration_=(endEvaluateTime-startEvaluateTime) )
-
-		else:
-			startEvaluateTime = time.time()
-			loss, threshold, accuracy = self.testEvaluator.Evaluate(self.session,
-								   currentEpoch_=currentEpoch_,
-								   threshold_=self.bestThreshold)
-			endEvaluateTime = time.time()
-
-			self.printCalculationResults(jobType_='test', loss_=loss, isThresholdOptimized_=False,
-						     threshold_=threshold, accuracy_=accuracy,
-						     duration_=(endEvaluateTime-startEvaluateTime) )
+		self.printCalculationResults(jobType_='test', loss_=loss, isThresholdOptimized_=False,
+					     threshold_=threshold, accuracy_=accuracy,
+					     duration_=(endEvaluateTime-startEvaluateTime) )
 
 	def printTimeMeasurement(self):
 		timeForTrainOneEpoch = time.time() - self._startTrainEpochTime

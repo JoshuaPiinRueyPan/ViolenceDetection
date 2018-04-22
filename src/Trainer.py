@@ -29,9 +29,10 @@ class Trainer:
 
 		optimizer = trainSettings.GetOptimizer(self._learningRatePlaceHolder)
 		listOfGradients = optimizer.compute_gradients(totalLossOp)
-		listOfClippedGradients = self._clipGradientsAndDraw(listOfGradients)
+		listOfClippedGradients = self._clipGradients(listOfGradients)
 		self._optimzeOp = optimizer.apply_gradients(listOfClippedGradients)
 
+		self._appendNetActivationsToSummary()
 		self._summaryWriter = tf.summary.FileWriter(trainSettings.PATH_TO_SAVE_MODEL+"/train")
 
 	def __del__(self):
@@ -192,22 +193,28 @@ class Trainer:
 		session_.run( [self._classifier.updateOp],
 		 	     feed_dict = inputFeedDict )
 
-	def _clipGradientsAndDraw(self, gradientsInfo_):
-		listOfClippedGradients = []
-		for eachGradient, eachVariable in gradientsInfo_:
-			if eachGradient is not None:
-				clippedGradient = tf.clip_by_value(eachGradient,
-								  trainSettings.MIN_GRADIENT_VALUE,
-								  trainSettings.MAX_GRADIENT_VALUE)
-				listOfClippedGradients.append( (clippedGradient, eachVariable) )
+	def _appendNetActivationsToSummary(self):
+		with tf.name_scope('SummaryOfActivations'):
+			for name, activation in self._classifier.net.dictionaryOfInterestedActivations.items():
+				tf.summary.histogram(name + 'activation', activation)
 
-				tf.summary.histogram(eachVariable.op.name + '/gradient', eachGradient)
-				tf.summary.histogram(eachVariable.op.name + '/clipped-gradient', clippedGradient)
+	def _clipGradients(self, gradientsInfo_):
+		with tf.name_scope('ClipGradients'):
+			listOfClippedGradients = []
+			for eachGradient, eachVariable in gradientsInfo_:
+				if eachGradient is not None:
+					clippedGradient = tf.clip_by_value(eachGradient,
+									  trainSettings.MIN_GRADIENT_VALUE,
+									  trainSettings.MAX_GRADIENT_VALUE)
+					listOfClippedGradients.append( (clippedGradient, eachVariable) )
 
-			else:
-				listOfClippedGradients.append( (eachGradient, eachVariable) )
+					tf.summary.histogram(eachVariable.op.name + '/gradient', eachGradient)
+					tf.summary.histogram(eachVariable.op.name + '/clipped-gradient', clippedGradient)
 
-		return listOfClippedGradients
+				else:
+					listOfClippedGradients.append( (eachGradient, eachVariable) )
+
+			return listOfClippedGradients
 
 
 

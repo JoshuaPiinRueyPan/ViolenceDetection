@@ -20,6 +20,8 @@ class Net(NetworkBase):
 		self._DROPOUT_PROB = 0.5
 		self._NUMBER_OF_NEURONS_IN_LSTM = 1024
 
+		self._dictOfInterestedActivations = {}
+
 		if dataSettings.GROUPED_SIZE != 2:
 			errorMessage = __name__ + " only take GROUPED_SIZE = 2;\n"
 			errorMessage += "However, DataSettings.GROUPED_SIZE = " + str(dataSettings.GROUPED_SIZE)

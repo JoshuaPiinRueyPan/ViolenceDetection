@@ -19,6 +19,8 @@ class Net(NetworkBase):
 	
 		self._DROPOUT_VALUE = 0.5
 
+		self._dictOfInterestedActivations = {}
+
 		if trainSettings.UNROLLED_SIZE != 1:
 			errorMessage = __name__ + " only take UNROLLED_SIZE = 1 (single frame inference);\n"
 			errorMessage += "However, TrainSettings.UNROLLED_SIZE = " + str(trainSettings.UNROLLED_SIZE)
