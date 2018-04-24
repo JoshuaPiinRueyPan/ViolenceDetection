@@ -57,9 +57,8 @@ class Net(NetworkBase):
 #									return_elements=["BiasAdd_18"])
 				lastOp = listOfOperations[-1]
 				out = lastOp.outputs[0]
-				self._dictOfInterestedActivations['D19'] = out
 				out, updateOp0 = BatchNormalization('BN_0', out, isConvLayer_=True,
-								    isTraining_=self._isTraining, currentStep_=self._trainingStep)
+								     isTraining_=self._isTraining, currentStep_=self._trainingStep)
 			
 
 		with tf.name_scope("Conv_ConcatGroup"):
@@ -79,42 +78,19 @@ class Net(NetworkBase):
 					  [self._batchSize * self._unrolledSize,
 					   w, h, c * dataSettings.GROUPED_SIZE])
 			print("before ConcatConv, out.shape = ", out.shape)  # shape = [b*u, 7, 7, 1024*g]
-			out = ConvLayer('Conv_5_1', out, filterSize_=3, numberOfFilters_=512,
-					stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp1 = BatchNormalization('BN_5_1', out, isConvLayer_=True,
+			out = ConvLayer('Conv_ConcatGroup', out, filterSize_=3, numberOfFilters_=64, stride_=1)
+
+			out, updateOp1 = BatchNormalization('BN_1', out, isConvLayer_=True,
 							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			out = tf.nn.relu(out, 'RELU_5_1')
-			self._dictOfInterestedActivations['Conv_5_1'] = out
 
-			out = ConvLayer('Conv_5_2', out, filterSize_=3, numberOfFilters_=512,
-					 stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp2 = BatchNormalization('BN_5_2', out, isConvLayer_=True,
-							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			out = tf.nn.relu(out, 'RELU_5_2')
-
-			out = ConvLayer('Conv_5_3', out, filterSize_=3, numberOfFilters_=512,
-					stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp3 = BatchNormalization('BN_5_3', out, isConvLayer_=True,
-							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			out = tf.nn.relu(out, 'RELU_5_3')
-			self._dictOfInterestedActivations['Conv_5_3'] = out
-
-			out = MaxPoolLayer('Pool_5', out, kernelSize_=2, stride_=2, padding_='SAME')
-
-			print("after Pool, out.shape = ", out.shape)
-
-			out = FullyConnectedLayer('Fc_6', out, numberOfOutputs_=1024)
-			out = tf.nn.relu(out, 'RELU_6')
-			out, updateOp4 = BatchNormalization('BN_6', out, isConvLayer_=False,
-							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			out = tf.nn.relu(out, 'RELU_5_3')
 			
+			print("after ConcatConv, out.shape = ", out.shape)
 			out = tf.cond(self._isTraining, lambda: tf.nn.dropout(out, self._DROPOUT_PROB), lambda: out)
 
-			out = FullyConnectedLayer('Fc7', out, numberOfOutputs_=1024)
-			out, updateOp5 = BatchNormalization('BN7', out, isConvLayer_=False,
+			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=1024)
+			out, updateOp2 = BatchNormalization('BN_2', out, isConvLayer_=False,
 							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			self._dictOfInterestedActivations['Fc7'] = out
+
 			'''
 			    Note: For tf.nn.rnn_cell.dynamic_rnn(), the input shape of [1:] must be explicit.
 			          i.e., one Can't Reshape the out by:
@@ -132,7 +108,6 @@ class Net(NetworkBase):
 											self._NUMBER_OF_NEURONS_IN_LSTM,
 											isTraining_=self._isTraining,
 											dropoutProb_=self._DROPOUT_PROB)
-		self._dictOfInterestedActivations['LSTM'] = out
 		with tf.name_scope("Fc_Final"):
 			featuresShapeInOneBatch = out.shape[2:].as_list()
 			targetShape = [self._batchSize * self._unrolledSize] + featuresShapeInOneBatch
@@ -140,7 +115,7 @@ class Net(NetworkBase):
 			out = FullyConnectedLayer('Fc3', out, numberOfOutputs_=dataSettings.NUMBER_OF_CATEGORIES)
 			self._logits = tf.reshape(out, [self._batchSize, self._unrolledSize, -1])
 
-		self._updateOp = tf.group(updateOp0, updateOp1, updateOp2, updateOp3, updateOp4, updateOp5)
+		self._updateOp = tf.group(updateOp0, updateOp1, updateOp2)
 
 
 	@property

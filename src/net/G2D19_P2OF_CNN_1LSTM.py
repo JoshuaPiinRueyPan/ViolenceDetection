@@ -42,79 +42,66 @@ class Net(NetworkBase):
 				darknet19_GraphDef.ParseFromString(modelFile.read())
 				listOfOperations = tf.import_graph_def(darknet19_GraphDef,
 									input_map={"input": convInput},
-#									return_elements=["BiasAdd_13"])
-#									return_elements=["32-leaky"])
-#									return_elements=["BiasAdd_14"])
-#									return_elements=["34-leaky"])
-#									return_elements=["BiasAdd_15"])
-									return_elements=["36-leaky"])
-#									return_elements=["BiasAdd_16"])
-#									return_elements=["38-leaky"])
-#									return_elements=["BiasAdd_17"])
-#									return_elements=["40-leaky"])
-#									return_elements=["Pad_18"])
-#									return_elements=["41-convolutional"])
-#									return_elements=["BiasAdd_18"])
+#									return_elements=["2-maxpool", "32-leaky"])
+									return_elements=["2-maxpool", "36-leaky"])
+				pool2 = listOfOperations[0].outputs[0]
 				lastOp = listOfOperations[-1]
 				out = lastOp.outputs[0]
-				self._dictOfInterestedActivations['D19'] = out
 				out, updateOp0 = BatchNormalization('BN_0', out, isConvLayer_=True,
-								    isTraining_=self._isTraining, currentStep_=self._trainingStep)
+								     isTraining_=self._isTraining, currentStep_=self._trainingStep)
 			
 
-		with tf.name_scope("Conv_ConcatGroup"):
+		opticalFlowOut, updateOF = self._buildOpticalFlowNet(pool2)
+		print("opticalFlowOut.shape = ", opticalFlowOut.shape)  # shape = [b*u, 1024]
+
+		with tf.name_scope("CNN"):
 			'''
 			    The input shape = [b, u, g, w, h, c]
 			    after Conv, shape = [b*u*g, w', h', c']
 			    here, decouple the Group dimension, shape = [b*u, g * w' * h' * c']
 			'''
-			print("darknetOutput.shape = ", out.shape)   # shape = [b*u*g, 7, 7, 1024]
+			print("In CNN:")
+			print("\t darknetOutput.shape = ", out.shape)   # shape = [b*u*g, 7, 7, 1024]
 			w, h, c = out.shape[1:]  # 7, 7, 1024
 			out = tf.reshape( out,
 					  [self._batchSize * self._unrolledSize, dataSettings.GROUPED_SIZE,
 					  w, h, c])  # [b*u, g, 7, 7, 1024]
 			out = tf.transpose(out, perm=[0, 2, 3, 4, 1])  # [b*u, 7, 7, 1024, g]
-			print("after transpose, out.shape = ", out.shape)
+			print("\t after transpose, out.shape = ", out.shape)
 			out = tf.reshape( out, 
 					  [self._batchSize * self._unrolledSize,
 					   w, h, c * dataSettings.GROUPED_SIZE])
-			print("before ConcatConv, out.shape = ", out.shape)  # shape = [b*u, 7, 7, 1024*g]
-			out = ConvLayer('Conv_5_1', out, filterSize_=3, numberOfFilters_=512,
-					stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp1 = BatchNormalization('BN_5_1', out, isConvLayer_=True,
-							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			out = tf.nn.relu(out, 'RELU_5_1')
-			self._dictOfInterestedActivations['Conv_5_1'] = out
+			print("\t before ConcatConv, out.shape = ", out.shape)  # shape = [b*u, 7, 7, 1024*g]
+			out = ConvLayer('Conv1', out, 3, numberOfFilters_=128, stride_=1, padding_='SAME', isTrainable_=True)
+			out, updateOp1 = BatchNormalization('BN_1', out, isConvLayer_=True, isTraining_=self._isTraining,
+								     currentStep_=self._trainingStep, isTrainable_=True)
+			out = LeakyRELU('RELU1', out)
+			out = ConvLayer('Conv2', out, 1, numberOfFilters_=64, stride_=1, padding_='SAME', isTrainable_=True)
+			out, updateOp2 = BatchNormalization('BN_2', out, isConvLayer_=True, isTraining_=self._isTraining,
+								     currentStep_=self._trainingStep, isTrainable_=True)
+			out = LeakyRELU('RELU2', out)
+			out = ConvLayer('Conv3', out, 3, numberOfFilters_=128, stride_=1, padding_='SAME', isTrainable_=True)
+			out, updateOp3 = BatchNormalization('BN_3', out, isConvLayer_=True, isTraining_=self._isTraining,
+								     currentStep_=self._trainingStep, isTrainable_=True)
+			out = LeakyRELU('RELU3', out)
 
-			out = ConvLayer('Conv_5_2', out, filterSize_=3, numberOfFilters_=512,
-					 stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp2 = BatchNormalization('BN_5_2', out, isConvLayer_=True,
-							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			out = tf.nn.relu(out, 'RELU_5_2')
-
-			out = ConvLayer('Conv_5_3', out, filterSize_=3, numberOfFilters_=512,
-					stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp3 = BatchNormalization('BN_5_3', out, isConvLayer_=True,
-							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			out = tf.nn.relu(out, 'RELU_5_3')
-			self._dictOfInterestedActivations['Conv_5_3'] = out
-
-			out = MaxPoolLayer('Pool_5', out, kernelSize_=2, stride_=2, padding_='SAME')
-
-			print("after Pool, out.shape = ", out.shape)
-
-			out = FullyConnectedLayer('Fc_6', out, numberOfOutputs_=1024)
-			out = tf.nn.relu(out, 'RELU_6')
-			out, updateOp4 = BatchNormalization('BN_6', out, isConvLayer_=False,
-							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			out = tf.nn.relu(out, 'RELU_5_3')
 			
 			out = tf.cond(self._isTraining, lambda: tf.nn.dropout(out, self._DROPOUT_PROB), lambda: out)
 
-			out = FullyConnectedLayer('Fc7', out, numberOfOutputs_=1024)
-			out, updateOp5 = BatchNormalization('BN7', out, isConvLayer_=False,
+			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=1024)
+			out, updateOp4 = BatchNormalization('BN_4', out, isConvLayer_=False,
 							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
-			self._dictOfInterestedActivations['Fc7'] = out
+			self._dictOfInterestedActivations['CNN'] = out
+			print("\t Fc out.shape = ", out.shape)
+
+
+		with tf.name_scope("Concat"):
+			out = tf.concat([out, opticalFlowOut], axis=1)
+			print("In Concat:")
+			print("\t before Fc, out.shape = ", out.shape)
+			out = FullyConnectedLayer('Fc', out, numberOfOutputs_=1024)
+			out, updateOp5 = BatchNormalization('BN_5', out, isConvLayer_=False,
+							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
 			'''
 			    Note: For tf.nn.rnn_cell.dynamic_rnn(), the input shape of [1:] must be explicit.
 			          i.e., one Can't Reshape the out by:
@@ -124,6 +111,7 @@ class Net(NetworkBase):
 			featuresShapeInOneBatch = out.shape[1:].as_list()
 			targetShape = [self._batchSize, self._unrolledSize] + featuresShapeInOneBatch
 			out = tf.reshape(out, targetShape)
+			self._dictOfInterestedActivations['Concat'] = out
 			print("before LSTM, shape = ", out.shape)
 
 
@@ -132,7 +120,9 @@ class Net(NetworkBase):
 											self._NUMBER_OF_NEURONS_IN_LSTM,
 											isTraining_=self._isTraining,
 											dropoutProb_=self._DROPOUT_PROB)
+
 		self._dictOfInterestedActivations['LSTM'] = out
+
 		with tf.name_scope("Fc_Final"):
 			featuresShapeInOneBatch = out.shape[2:].as_list()
 			targetShape = [self._batchSize * self._unrolledSize] + featuresShapeInOneBatch
@@ -140,7 +130,9 @@ class Net(NetworkBase):
 			out = FullyConnectedLayer('Fc3', out, numberOfOutputs_=dataSettings.NUMBER_OF_CATEGORIES)
 			self._logits = tf.reshape(out, [self._batchSize, self._unrolledSize, -1])
 
-		self._updateOp = tf.group(updateOp0, updateOp1, updateOp2, updateOp3, updateOp4, updateOp5)
+		self._updateOp = tf.group(updateOF, updateOp0, updateOp1, updateOp2, updateOp3, updateOp4, updateOp5)
+		print()
+
 
 
 	@property
@@ -198,3 +190,53 @@ class Net(NetworkBase):
 
 			return { self._statePlaceHolderOfLSTM_1 : listOfPreviousStateValues_[0] }
 
+
+	def _buildOpticalFlowNet(self, inputTensor_):
+		'''
+		    The input shape = [b, u, g, w, h, c]
+		    after Conv, shape = [b*u*g, w', h', c']
+		    here, decouple the Group dimension, shape = [b*u, g * w' * h' * c']
+		'''
+		with tf.name_scope("OpticalFLow"):
+			print("In OpticalFlow:")
+			print("\t pool2.shape = ", inputTensor_.shape)  # shape = [b*u*g, 112, 112, 32]
+			w, h, c = inputTensor_.shape[1:]  # 112, 112, 32
+			out = tf.reshape( inputTensor_,
+					  [self._batchSize * self._unrolledSize, dataSettings.GROUPED_SIZE,
+					  w, h, c])  # [b*u, g, 112, 112, 32]
+			out = tf.transpose(out, perm=[0, 2, 3, 4, 1])  # [b*u, 112, 112, 32, g]
+			print("\t after transpose, out.shape = ", out.shape)
+			out = tf.reshape( out, 
+					  [self._batchSize * self._unrolledSize,
+					   w, h, c * dataSettings.GROUPED_SIZE])
+			print("\t before Conv2, out.shape = ", out.shape)  # shape = [b*u, 112, 112, 32*g]
+			out = ConvLayer('Conv2', out, filterSize_=3, numberOfFilters_=64, stride_=1, padding_='SAME', isTrainable_=True)
+			out, updateOp1 = BatchNormalization('BN2', out, isConvLayer_=True, isTraining_=self._isTraining,
+								     currentStep_=self._trainingStep, isTrainable_=True)
+			out = LeakyRELU('RELU2', out)
+			out = MaxPoolLayer('Pool2', out, kernelSize_=2, stride_=2, padding_='SAME')
+
+			out = ConvLayer('Conv3', out, 3, numberOfFilters_=128, stride_=1, padding_='SAME', isTrainable_=True)
+			out, updateOp2 = BatchNormalization('BN3', out, isConvLayer_=True, isTraining_=self._isTraining,
+								     currentStep_=self._trainingStep, isTrainable_=True)
+			out = LeakyRELU('RELU3', out)
+			out = ConvLayer('Conv4', out, 1, numberOfFilters_=64, stride_=1, padding_='SAME', isTrainable_=True)
+			out, updateOp3 = BatchNormalization('BN4', out, isConvLayer_=True, isTraining_=self._isTraining,
+								     currentStep_=self._trainingStep, isTrainable_=True)
+			out = LeakyRELU('RELU4', out)
+			out = ConvLayer('Conv5', out, 3, numberOfFilters_=128, stride_=1, padding_='SAME', isTrainable_=True)
+			out, updateOp4 = BatchNormalization('BN5', out, isConvLayer_=True, isTraining_=self._isTraining,
+								     currentStep_=self._trainingStep, isTrainable_=True)
+			out = LeakyRELU('RELU5', out)
+			out = MaxPoolLayer('Pool5', out, kernelSize_=2, stride_=2, padding_='SAME')
+
+			print("\t before Fc, out.shape = ", out.shape)  # shape = [b*u, 28, 28, 128]
+			out = tf.cond(self._isTraining, lambda: tf.nn.dropout(out, self._DROPOUT_PROB), lambda: out)
+
+			out = FullyConnectedLayer('Fc_of', out, numberOfOutputs_=1024)
+			out, updateOp5 = BatchNormalization('BN_of', out, isConvLayer_=False,
+							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
+			self._dictOfInterestedActivations['OpticalFlow'] = out
+			print("\t Fc final.shape = ", out.shape)
+			updateOp = tf.group(updateOp1, updateOp2, updateOp3, updateOp4, updateOp5)
+			return out, updateOp

@@ -18,6 +18,17 @@ LIST_OF_VIDEOS = [
 	"data/Bermejo/hockey/noFights/no353_xvid.avi",
 	"data/Bermejo/hockey/fights/fi261_xvid.avi",
 	"data/Bermejo/hockey/noFights/no317_xvid.avi",
+	"data/Bermejo/hockey/noFights/no361_xvid.avi",
+	"data/Bermejo/hockey/fights/fi203_xvid.avi",
+	"data/Bermejo/hockey/noFights/no119_xvid.avi",
+	"data/Bermejo/hockey/noFights/no411_xvid.avi",
+	"data/Bermejo/hockey/noFights/no388_xvid.avi",
+	"data/Bermejo/hockey/fights/fi71_xvid.avi",
+	"data/Bermejo/hockey/noFights/no434_xvid.avi",
+	"data/Bermejo/hockey/fights/fi185_xvid.avi",
+	"data/Bermejo/hockey/fights/fi349_xvid.avi",
+	"data/Bermejo/hockey/noFights/no207_xvid.avi"
+
 ]
 
 

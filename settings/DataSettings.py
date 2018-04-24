@@ -21,13 +21,6 @@ IMAGE_CHANNELS = 3
 '''
 NUMBER_OF_CATEGORIES = 2
 
-#######################
-#  Data Augmentation  #
-#######################
-PROBABILITY_TO_FLIP_IMAGE = 0.5
-PROBABILITY_TO_ADD_PIXEL_VALUE = 0
-PROBABILITY_TO_MULTIPLY = 0
-PROBABILITY_TO_ADD_NOISE = 0
 
 #########################
 #  Uncommen Adjustment  #
@@ -43,8 +36,8 @@ FLOAT_TYPE = np.float32
 '''
     Following control the timeout of LoadData Thread.
     Recommand values:
-	BATCH_SIZE=4, TIMEOUT_FOR_WAIT_QUEUE = 10
-	BATCH_SIZE=20, TIMEOUT_FOR_WAIT_QUEUE = 20
-	BATCH_SIZE=40, TIMEOUT_FOR_WAIT_QUEUE = 40
+	BATCH_SIZE=4, No DataAug, TIMEOUT_FOR_WAIT_QUEUE = 10
+	BATCH_SIZE=20, No DataAug, TIMEOUT_FOR_WAIT_QUEUE = 20
+	BATCH_SIZE=40, No DataAug, TIMEOUT_FOR_WAIT_QUEUE = 40
 '''
 TIMEOUT_FOR_WAIT_QUEUE = 40

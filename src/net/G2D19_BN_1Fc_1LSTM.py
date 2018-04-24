@@ -74,6 +74,7 @@ class Net(NetworkBase):
 			targetShape = [self._batchSize * self._unrolledSize, dataSettings.GROUPED_SIZE * numberOfFeatures]
 			out = tf.reshape(out, targetShape)
 			print("Decouple Group dimension, shape = ", out.shape)
+			out = tf.cond(self._isTraining, lambda: tf.nn.dropout(out, self._DROPOUT_PROB), lambda: out)
 
 
 			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=1024)

@@ -155,7 +155,6 @@ class Trainer:
 		inputFeedDict.update(cellStateFeedDict)
 
 		if self._dataManager.isNewEpoch:
-
 			_, summaryValue = session_.run( [self._optimzeOp, self._summaryOp],
 							feed_dict = inputFeedDict )
 
@@ -194,9 +193,9 @@ class Trainer:
 		 	     feed_dict = inputFeedDict )
 
 	def _appendNetActivationsToSummary(self):
-		with tf.name_scope('SummaryOfActivations'):
+		with tf.name_scope('Activations'):
 			for name, activation in self._classifier.net.dictionaryOfInterestedActivations.items():
-				tf.summary.histogram(name + 'activation', activation)
+				tf.summary.histogram(name, activation)
 
 	def _clipGradients(self, gradientsInfo_):
 		with tf.name_scope('ClipGradients'):

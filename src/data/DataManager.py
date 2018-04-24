@@ -63,6 +63,8 @@ class DataManagerBase:
 	def Stop(self):
 		with self._lockForThreadControl:
 			self._shouldStop = True
+			print("Send Stop singal to Loading threads...")
+			print("\t The Loading threads will Stop in about " + str(dataSettings.TIMEOUT_FOR_WAIT_QUEUE) + " (s).")
 
 	def GetQueueInfo(self):
 		info = "listOfData.len() = " + str( len(self._listOfData) ) + ";\t"
