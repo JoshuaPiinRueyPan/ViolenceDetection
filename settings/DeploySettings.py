@@ -1,7 +1,7 @@
 import numpy as np
 
 #PATH_TO_MODEL_CHECKPOINTS = "data/bestResult/save_epoch_6/ViolenceNet.ckpt"
-PATH_TO_MODEL_CHECKPOINTS = "temp/G2D19_1Fc_1LSTM_noDataAug_expLR/save_epoch_5/ViolenceNet.ckpt"
+PATH_TO_MODEL_CHECKPOINTS = "data/bestResult/G2D19_P2OF_CNN_1LSTM/save_epoch_21/ViolenceNet.ckpt"
 
 '''
       To smooth the Judgement of Fight/NoneFight, count of neighbor frames
@@ -20,7 +20,7 @@ PATH_TO_MODEL_CHECKPOINTS = "temp/G2D19_1Fc_1LSTM_noDataAug_expLR/save_epoch_5/V
 	  Flase		  True
 	  Flase		  False
 '''
-CHANGE_JUDGEMENT_THRESHOLD = 3
+CHANGE_JUDGEMENT_THRESHOLD = 22
 
 DISPLAY_IMAGE_SIZE = 500
 

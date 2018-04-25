@@ -29,6 +29,20 @@ class VideoSavor:
 		codec = cv2.VideoWriter_fourcc(*'XVID')
 		self.outputStream = cv2.VideoWriter(targetFileName + ".avi", codec, frameRate, (width, height) )
 
+def PrintUnsmoothedResults(unsmoothedResults_):
+	print("Unsmoothed results:")
+	print("\t [ ")
+	print("\t   ", end='')
+	for i, eachResult in enumerate(unsmoothedResults_):
+		if i % 10 == 9:
+			print( str(eachResult)+", " )
+			print("\t   ", end='')
+
+		else:
+			print( str(eachResult)+", ", end='')
+
+	print("\n\t ]")
+
 
 def DetectViolence(PATH_FILE_NAME_OF_SOURCE_VIDEO, PATH_FILE_NAME_TO_SAVE_RESULT):
 	violenceDetector = ViolenceDetector()
@@ -82,6 +96,7 @@ def DetectViolence(PATH_FILE_NAME_OF_SOURCE_VIDEO, PATH_FILE_NAME_TO_SAVE_RESULT
 		else:
 			isCurrentFrameValid, currentImage = videoReader.read()
 
+	PrintUnsmoothedResults(violenceDetector.unsmoothedResults)
 	averagedForwardTime = np.mean(listOfForwardTime)
 	print("Averaged Forward Time: ", averagedForwardTime)
 	

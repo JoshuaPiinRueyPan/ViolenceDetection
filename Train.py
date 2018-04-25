@@ -168,8 +168,8 @@ class Main:
 				",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
 		else:
 			print("\t\t loss: ", "{0:.8f}".format(loss_),
-				",\t frame threshold: ", threshold_,
-				",\t\t accuracy: ", "{0:.8f}".format(accuracy_),
+				",\t given frame threshold: ", threshold_,
+				",\t accuracy: ", "{0:.8f}".format(accuracy_),
 				",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
 
 

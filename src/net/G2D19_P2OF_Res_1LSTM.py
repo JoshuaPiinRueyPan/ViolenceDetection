@@ -2,6 +2,7 @@ import tensorflow as tf
 from src.net.NetBase import *
 from src.layers.LayerHelper import *
 from src.layers.BasicLayers import *
+from src.layers.ResidualLayers import ResidualBlock
 from src.layers.RNN import *
 import settings.LayerSettings as layerSettings
 import settings.DataSettings as dataSettings
@@ -72,25 +73,15 @@ class Net(NetworkBase):
 					  [self._batchSize * self._unrolledSize,
 					   w, h, c * dataSettings.GROUPED_SIZE])
 			print("\t before ConcatConv, out.shape = ", out.shape)  # shape = [b*u, 7, 7, 1024*g]
-			out = ConvLayer('Conv1', out, 3, numberOfFilters_=128, stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp1 = BatchNormalization('BN_1', out, isConvLayer_=True, isTraining_=self._isTraining,
-								     currentStep_=self._trainingStep, isTrainable_=True)
-			out = LeakyRELU('RELU1', out)
-			out = ConvLayer('Conv2', out, 1, numberOfFilters_=64, stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp2 = BatchNormalization('BN_2', out, isConvLayer_=True, isTraining_=self._isTraining,
-								     currentStep_=self._trainingStep, isTrainable_=True)
-			out = LeakyRELU('RELU2', out)
-			out = ConvLayer('Conv3', out, 3, numberOfFilters_=128, stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp3 = BatchNormalization('BN_3', out, isConvLayer_=True, isTraining_=self._isTraining,
-								     currentStep_=self._trainingStep, isTrainable_=True)
-			out = LeakyRELU('RELU3', out)
 
-			
+			out, updateOp1 = ResidualBlock('ResBlock', out, [512, 512, 2048], isTraining_=self._isTraining,
+							trainingStep_=self._trainingStep, activationType_="LEAKY_RELU", isTrainable_=True)
+
 			print("\t before Fc, out.shape = ", out.shape)
 			out = tf.cond(self._isTraining, lambda: tf.nn.dropout(out, self._DROPOUT_PROB), lambda: out)
 
 			out = FullyConnectedLayer('Fc1', out, numberOfOutputs_=1024)
-			out, updateOp4 = BatchNormalization('BN_4', out, isConvLayer_=False,
+			out, updateOp2 = BatchNormalization('BN_4', out, isConvLayer_=False,
 							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
 			self._dictOfInterestedActivations['CNN'] = out
 			print("\t Fc out.shape = ", out.shape)
@@ -101,7 +92,7 @@ class Net(NetworkBase):
 			print("In Concat:")
 			print("\t before Fc, out.shape = ", out.shape)
 			out = FullyConnectedLayer('Fc', out, numberOfOutputs_=1024)
-			out, updateOp5 = BatchNormalization('BN_5', out, isConvLayer_=False,
+			out, updateOp3 = BatchNormalization('BN_5', out, isConvLayer_=False,
 							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
 			'''
 			    Note: For tf.nn.rnn_cell.dynamic_rnn(), the input shape of [1:] must be explicit.
@@ -131,7 +122,7 @@ class Net(NetworkBase):
 			out = FullyConnectedLayer('Fc3', out, numberOfOutputs_=dataSettings.NUMBER_OF_CATEGORIES)
 			self._logits = tf.reshape(out, [self._batchSize, self._unrolledSize, -1])
 
-		self._updateOp = tf.group(updateOF, updateOp0, updateOp1, updateOp2, updateOp3, updateOp4, updateOp5)
+		self._updateOp = tf.group(updateOF, updateOp0, updateOp1, updateOp2, updateOp3)
 		print()
 
 
@@ -217,27 +208,18 @@ class Net(NetworkBase):
 			out = LeakyRELU('RELU2', out)
 			out = MaxPoolLayer('Pool2', out, kernelSize_=2, stride_=2, padding_='SAME')
 
-			out = ConvLayer('Conv3', out, 3, numberOfFilters_=128, stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp2 = BatchNormalization('BN3', out, isConvLayer_=True, isTraining_=self._isTraining,
-								     currentStep_=self._trainingStep, isTrainable_=True)
-			out = LeakyRELU('RELU3', out)
-			out = ConvLayer('Conv4', out, 1, numberOfFilters_=64, stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp3 = BatchNormalization('BN4', out, isConvLayer_=True, isTraining_=self._isTraining,
-								     currentStep_=self._trainingStep, isTrainable_=True)
-			out = LeakyRELU('RELU4', out)
-			out = ConvLayer('Conv5', out, 3, numberOfFilters_=128, stride_=1, padding_='SAME', isTrainable_=True)
-			out, updateOp4 = BatchNormalization('BN5', out, isConvLayer_=True, isTraining_=self._isTraining,
-								     currentStep_=self._trainingStep, isTrainable_=True)
-			out = LeakyRELU('RELU5', out)
+			out, updateOp2 = ResidualBlock('ResBlock', out, [128, 128, 64], isTraining_=self._isTraining,
+							trainingStep_=self._trainingStep, activationType_="LEAKY_RELU", isTrainable_=True)
+
 			out = MaxPoolLayer('Pool5', out, kernelSize_=2, stride_=2, padding_='SAME')
 
 			print("\t before Fc, out.shape = ", out.shape)  # shape = [b*u, 28, 28, 128]
 			out = tf.cond(self._isTraining, lambda: tf.nn.dropout(out, self._DROPOUT_PROB), lambda: out)
 
 			out = FullyConnectedLayer('Fc_of', out, numberOfOutputs_=1024)
-			out, updateOp5 = BatchNormalization('BN_of', out, isConvLayer_=False,
+			out, updateOp3 = BatchNormalization('BN_of', out, isConvLayer_=False,
 							     isTraining_=self._isTraining, currentStep_=self._trainingStep)
 			self._dictOfInterestedActivations['OpticalFlow'] = out
 			print("\t Fc final.shape = ", out.shape)
-			updateOp = tf.group(updateOp1, updateOp2, updateOp3, updateOp4, updateOp5)
+			updateOp = tf.group(updateOp1, updateOp2, updateOp3)
 			return out, updateOp

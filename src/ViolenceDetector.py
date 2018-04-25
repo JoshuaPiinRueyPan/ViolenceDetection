@@ -57,7 +57,8 @@ class ViolenceDetector:
 		self.session.run(init)
 		self._recoverModelFromCheckpoints()
 
-		# Output Smoothing
+		# Output
+		self._unsmoothedResults = []
 		self._outputSmoother = OutputSmoother()
 
 	def __del__(self):
@@ -93,10 +94,15 @@ class ViolenceDetector:
 		self._listOfPreviousCellState = listOfOutputs
 
 		isFighting = np.equal(np.argmax(prediction), np.argmax(dataSettings.FIGHT_LABEL))
+		self._unsmoothedResults.append(isFighting)
 
 		smoothedOutput = self._outputSmoother.Smooth(isFighting)
 
 		return smoothedOutput
+
+	@property
+	def unsmoothedResults(self):
+		return self._unsmoothedResults
 
 	def _updateGroupedInputImages(self, newInputImage_):
 		if len(self._listOfPreviousFrames) == dataSettings.GROUPED_SIZE:
@@ -105,7 +111,6 @@ class ViolenceDetector:
 			self._listOfPreviousFrames.append(newInputImage_)
 
 		else:
-			print("This should happend ONLY ONECE!")
 			blackFrame = np.full( shape=[dataSettings.IMAGE_SIZE, dataSettings.IMAGE_SIZE, dataSettings.IMAGE_CHANNELS],
 					      fill_value=-1.0,
 					      dtype=dataSettings.FLOAT_TYPE)

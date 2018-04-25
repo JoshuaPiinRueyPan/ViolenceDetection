@@ -7,7 +7,8 @@
 #from src.net.G2D19_Conv_1LSTM import *
 #from src.net.G2D19_BN_Conv_1LSTM import *
 #from src.net.G2D19_VGG_1LSTM import *
-from src.net.G2D19_P2OF_CNN_1LSTM import *
+#from src.net.G2D19_P2OF_CNN_1LSTM import *
+from src.net.G2D19_P2OF_Res_1LSTM import *
 #from src.net.D19_3Fc import *
 
 def GetNetwork(inputImage_, batchSize_, unrolledSize_, isTraining_, trainingStep_):

@@ -9,7 +9,7 @@ import time
 def PrintHelp():
 	print("Usage:  Evaluate.py  $(PATH_TO_DATA_SET_CATELOG)  $(Threshold)")
 	print("    or, Evaluate.py  $(PATH_TO_DATA_SET_CATELOG)")
-	print("        to find best threshold.")
+	print("        to find the best threshold.")
 
 def PrintResults(loss_, isThresholdOptimized_, threshold_, accuracy_, duration_):
 	floatPrecision = "{0:.8f}"
@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
 			startEvaluateTime = time.time()
 			if numberOfArguments == 2:
-				print("Start evaluate: ", PATH_TO_DATA_SET_CATELOG, ", and find the best threshold.")
+				print("Start evaluate: ", PATH_TO_DATA_SET_CATELOG, ", and find the best threshold...")
 				loss, threshold, accuracy = evaluator.Evaluate( session,
 										currentEpoch_=0,
 										threshold_=None)
