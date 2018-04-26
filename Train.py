@@ -72,9 +72,16 @@ class Main:
 
 				self.printTimeMeasurement()
 				self.trainer.PauseDataLoading()
+
 				self.evaluateValidationSetAndPrint(self.trainer.currentEpoch)
 				self.evaluateTrainingSetAndPrint(self.trainer.currentEpoch)
+
+				if trainSettings.PERFORM_DATA_AUGMENTATION:
+					# Preload TrainBatch while evaluate the TestSet
+					self.trainer.ContinueDataLoading()
+
 				self.evaluateTestSetAndPrint(self.trainer.currentEpoch)
+
 				self.trainer.ContinueDataLoading()
 
 				self.resetTimeMeasureVariables()
@@ -106,13 +113,14 @@ class Main:
 		    Note: If one want to calculate the BatchLoss ONLY, use Trainer.EvaluateTrainLoss().
 		'''
 		startEvaluateTime = time.time()
-		loss, threshold, accuracy = self.trainEvaluator.Evaluate(self.session,
-									 currentEpoch_=currentEpoch_,
-									 threshold_=self.bestThreshold)
+		loss, frameAccuracy, threshold, videoAccuracy = self.trainEvaluator.Evaluate(	self.session,
+												currentEpoch_=currentEpoch_,
+												threshold_=self.bestThreshold)
 		endEvaluateTime = time.time()
 
-		self.printCalculationResults(jobType_='train', loss_=loss, isThresholdOptimized_=False,
-					     threshold_=threshold, accuracy_=accuracy,
+		self.printCalculationResults(jobType_='train', loss_=loss, frameAccuracy_=frameAccuracy,
+					     isThresholdOptimized_=False,
+					     threshold_=threshold, videoAccuracy_=videoAccuracy,
 					     duration_=(endEvaluateTime-startEvaluateTime) )
 
 
@@ -125,52 +133,56 @@ class Main:
 
 	def evaluateValidationSetAndPrint(self, currentEpoch_):
 		startEvaluateTime = time.time()
-		loss, threshold, accuracy = self.validationEvaluator.Evaluate(self.session,
-										  currentEpoch_=currentEpoch_,
-										  threshold_=None)
+		loss, frameAccuracy, threshold, videoAccuracy = self.validationEvaluator.Evaluate(self.session,
+												  currentEpoch_=currentEpoch_,
+												  threshold_=None)
 		endEvaluateTime = time.time()
 
 		self.bestThreshold = threshold
-		self.printCalculationResults(jobType_='validation', loss_=loss, isThresholdOptimized_=True,
-					     threshold_=threshold, accuracy_=accuracy,
+		self.printCalculationResults(jobType_='validation', loss_=loss, frameAccuracy_=frameAccuracy,
+					     isThresholdOptimized_=True,
+					     threshold_=threshold, videoAccuracy_=videoAccuracy,
 					     duration_=(endEvaluateTime-startEvaluateTime) )
 
 	def evaluateTestSetAndPrint(self, currentEpoch_):
 		startEvaluateTime = time.time()
-		loss, threshold, accuracy = self.testEvaluator.Evaluate(self.session,
-							   currentEpoch_=currentEpoch_,
-							   threshold_=self.bestThreshold)
+		loss, frameAccuracy, threshold, videoAccuracy = self.testEvaluator.Evaluate(self.session,
+											    currentEpoch_=currentEpoch_,
+											    threshold_=self.bestThreshold)
 		endEvaluateTime = time.time()
 
-		self.printCalculationResults(jobType_='test', loss_=loss, isThresholdOptimized_=False,
-					     threshold_=threshold, accuracy_=accuracy,
+		self.printCalculationResults(jobType_='test', loss_=loss, frameAccuracy_=frameAccuracy,
+					     isThresholdOptimized_=False,
+					     threshold_=threshold, videoAccuracy_=videoAccuracy,
 					     duration_=(endEvaluateTime-startEvaluateTime) )
 
 	def printTimeMeasurement(self):
 		timeForTrainOneEpoch = time.time() - self._startTrainEpochTime
 		print("\t Back Propergation time measurement:")
-		print("\t\t duration: ", "{0:.4f}".format(timeForTrainOneEpoch), "s/epoch")
+		print("\t\t duration: ", "{0:.2f}".format(timeForTrainOneEpoch), "s/epoch")
 		averagedTrainTime = timeForTrainOneEpoch / self._trainCountInOneEpoch
-		print("\t\t average: ", "{0:.4f}".format(averagedTrainTime), "s/batch")
+		print("\t\t average: ", "{0:.2f}".format(averagedTrainTime), "s/batch")
 		print()
 
 	def resetTimeMeasureVariables(self):
 		self._startTrainEpochTime = time.time()
 		self._trainCountInOneEpoch = 0
 
-	def printCalculationResults(self, jobType_, loss_, isThresholdOptimized_, threshold_, accuracy_, duration_):
-		floatPrecision = "{0:.8f}"
+	def printCalculationResults(self, jobType_, loss_, frameAccuracy_, isThresholdOptimized_, threshold_, videoAccuracy_, duration_):
+		floatPrecision = "{0:.4f}"
 		print("\t "+jobType_+":")
 		if isThresholdOptimized_:
-			print("\t\t loss: ", "{0:.8f}".format(loss_),
-				",\t best frame threshold: ", threshold_,
-				",\t accuracy: ", "{0:.8f}".format(accuracy_),
-				",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
+			print("\t     loss:", floatPrecision.format(loss_),
+				"     frame accuracy:", floatPrecision.format(frameAccuracy_),
+				"     best frame threshold:", threshold_,
+				"     video accuracy:", floatPrecision.format(videoAccuracy_),
+				"     duration:", "{0:.2f}".format(duration_) + "(s)\n" )
 		else:
-			print("\t\t loss: ", "{0:.8f}".format(loss_),
-				",\t given frame threshold: ", threshold_,
-				",\t accuracy: ", "{0:.8f}".format(accuracy_),
-				",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
+			print("\t     loss:", floatPrecision.format(loss_),
+				"     frame accuracy:", floatPrecision.format(frameAccuracy_),
+				"     given frame threshold:", threshold_,
+				"     video accuracy:", floatPrecision.format(videoAccuracy_),
+				"     duration:", "{0:.2f}".format(duration_) + "(s)\n" )
 
 
 	def saveCheckpoint(self, currentEpoch_):

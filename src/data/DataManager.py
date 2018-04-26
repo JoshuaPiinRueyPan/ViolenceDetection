@@ -18,7 +18,7 @@ else:
 '''
    Number of Data to Produce when One data is Consumed.
 '''
-PRODUCE_CONSUME_RATIO = 10
+PRODUCE_CONSUME_RATIO = 15
 
 IS_DEBUG_MODE = True
 
@@ -193,6 +193,22 @@ class DataManagerBase:
 		with self._lockForDataList:
 			self._listOfData += listOfVideoData_
 
+	def putLoadedVideosBackToWaitingQueueOrDataListIfQueueIsFull(self, listOfLoadedVideos_):
+		try:
+			while len(listOfLoadedVideos_) > 0:
+				eachVideoReader = listOfLoadedVideos_.pop(0)
+				eachVideoReader.ReleaseImages()
+				self._queueForWaitingVideos.put(eachVideoReader, block=True,
+								timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
+		except Full:
+			if IS_DEBUG_MODE:
+				print("\t\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
+				      "); put VideoReader back to data list")
+			listOfLoadedVideos_.insert(0, eachVideoReader)
+			with self._lockForDataList:
+				self._listOfData = listOfLoadedVideos_ + self._listOfData
+
+
 
 	@abstractmethod
 	def AssignBatchData(self):
@@ -301,26 +317,31 @@ class TrainDataManager(DataManagerBase):
 					videoReader = self._queueForWaitingVideos.get(block=True,
 										      timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 
+					if trainSettings.PERFORM_DATA_AUGMENTATION:
+						videoReader.LoadVideoImages(dataAugmentFunction_=DataAugmenter.Augment)
+					else:
+						videoReader.LoadVideoImages()
+
+					listOfLoadedVideos.append(videoReader)
+
 				except Empty:
-					for eachVideoReader in listOfLoadedVideos:
-						if IS_DEBUG_MODE:
-							print("\t\t\t ** In TrainDataManager:")
-							print("\t\t\t\t    WaitingQueue is Empty, not enough data to form a batch.")
-							print("\t\t\t\t    " + self.GetQueueInfo())
-							print("\t\t\t\t    Release batch data and push VideoReader back to WaitingQueue...")
-							print("\t\t\t\t    Note: You may want to reduce the thread size.")
-						eachVideoReader.ReleaseImages()
-						self._queueForWaitingVideos.put(eachVideoReader, block=True,
-										timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
+					if IS_DEBUG_MODE:
+						print("\t\t\t ** In TrainDataManager:")
+						print("\t\t\t\t    WaitingQueue is Empty, not enough data to form a batch.")
+						print("\t\t\t\t    " + self.GetQueueInfo())
+						print("\t\t\t\t    Release batch data and push VideoReader back to WaitingQueue...")
+						print("\t\t\t\t    Note: You may want to reduce the thread size.")
+
+					'''
+					    Push more Data to WaitingQueue, so that other threads can keep pop from it.
+					    While release the current thread videoReader and push back to WaitingQueue
+					    or DataList.
+					'''
+					self.pushVideoDataToWaitingQueue(trainSettings.BATCH_SIZE * PRODUCE_CONSUME_RATIO)
+					self.putLoadedVideosBackToWaitingQueueOrDataListIfQueueIsFull(listOfLoadedVideos)
 
 					raise TimeoutError
 
-				if trainSettings.PERFORM_DATA_AUGMENTATION:
-					videoReader.LoadVideoImages(dataAugmentFunction_=DataAugmenter.Augment)
-				else:
-					videoReader.LoadVideoImages()
-
-				listOfLoadedVideos.append(videoReader)
 
 			batchData = BatchData()
 			batchData.batchSize = trainSettings.BATCH_SIZE
@@ -338,9 +359,17 @@ class TrainDataManager(DataManagerBase):
 				frameStartIndex = random.randint(0, 
 								max(0, currentVideo.totalFrames - batchData.unrolledSize) )
 
-				arrayOfImages, arrayOfLabels = self._getDataFromSingleVideo(currentVideo,
-											    frameStartIndex,
-											    batchData.unrolledSize)
+				try:
+					arrayOfImages, arrayOfLabels = self._getDataFromSingleVideo(currentVideo,
+												    frameStartIndex,
+												    batchData.unrolledSize)
+				except Exception as error:
+					self.putLoadedVideosBackToWaitingQueueOrDataListIfQueueIsFull(listOfLoadedVideos)
+					print(error)
+					print("\nException catched.  Put loadedVideos back to WaitingQueue and pass...")
+					print("error occur at: b = ", b, ", currentVideo.images = ", currentVideo.images)
+					raise TimeoutError
+
 				# Release the video frames
 				currentVideo.ReleaseImages()
 
@@ -382,23 +411,10 @@ class TrainDataManager(DataManagerBase):
 			except Full:
 				if IS_DEBUG_MODE:
 					print("\t\t\t LoadedQueue is full (size =", self._queueForLoadedVideos.qsize(),
-					      ");  put VideoReader back to WaitingQueue")
-				try:
-					while len(listOfLoadedVideos) > 0:
-						eachVideoReader = listOfLoadedVideos.pop(0)
-						self._queueForWaitingVideos.put(eachVideoReader, block=True,
-										timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
-						if IS_DEBUG_MODE:
-							print("\t\t\t\t put to WaitingQueue (size = ", self._queueForWaitingVideos.qsize(),
-							      ")...")
-				except Full:
-					if IS_DEBUG_MODE:
-						print("\t\t\t\t WaitingQueue is full (size =", self._queueForWaitingVideos.qsize(),
-						      "); put VideoReader back to data list")
-					listOfLoadedVideos.insert(0, eachVideoReader)
-					with self._lockForDataList:
-						self._listOfData = listOfLoadedVideos + self._listOfData
+					      ");  put VideoReader back to WaitingQueue (size = ",
+					      self._queueForWaitingVideos.qsize(), ")")
 
+				self.putLoadedVideosBackToWaitingQueueOrDataListIfQueueIsFull(listOfLoadedVideos)
 		
 		else:
 			time.sleep(0.1)
@@ -540,20 +556,12 @@ class EvaluationDataManager(DataManagerBase):
 								timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
 
 			except:
-				videoReader.ReleaseImages()
 				if IS_DEBUG_MODE:
 					print("\t\t\t LoadedQueue is full (size = ", self._queueForLoadedVideos.qsize(),
-					      "); stuff VideoReader back to WaitingQueue.")
-				try:
-					self._queueForWaitingVideos.put(videoReader, block=True,
-									timeout=dataSettings.TIMEOUT_FOR_WAIT_QUEUE)
+					      "); stuff VideoReader back to WaitingQueue (size = ",
+					      self._queueForWaitingVideos.qsize(), ")")
 
-				except Full:
-					if IS_DEBUG_MODE:
-						print("\t\t\t\t WaitingQueue is full (size = ", self._queueForWaitingVideos.qsize(),
-						      "); stuff VideoReader back to Data list.")
-					with self._lockForDataList:
-						self._listOfData.insert(0, videoReader)
+				self.putLoadedVideosBackToWaitingQueueOrDataListIfQueueIsFull( [videoReader] )
 
 		else:
 			time.sleep(0.1)

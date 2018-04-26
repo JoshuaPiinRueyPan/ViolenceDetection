@@ -12,7 +12,7 @@ PATH_TO_TEST_SET_CATELOG = 'data/test.txt'
 		  net for one inference.  For example, the P2D19_1Fc_1LSTM take two frame
 		  images as its input.
 '''
-GROUPED_SIZE = 2
+GROUPED_SIZE = 1
 IMAGE_SIZE = 224
 IMAGE_CHANNELS = 3
 
@@ -37,7 +37,9 @@ FLOAT_TYPE = np.float32
     Following control the timeout of LoadData Thread.
     Recommand values:
 	BATCH_SIZE=4, No DataAug, TIMEOUT_FOR_WAIT_QUEUE = 10
+	BATCH_SIZE=4, DataAug, TIMEOUT_FOR_WAIT_QUEUE = 40
 	BATCH_SIZE=20, No DataAug, TIMEOUT_FOR_WAIT_QUEUE = 20
 	BATCH_SIZE=40, No DataAug, TIMEOUT_FOR_WAIT_QUEUE = 40
+	BATCH_SIZE=40, DataAug, TIMEOUT_FOR_WAIT_QUEUE = 100
 '''
-TIMEOUT_FOR_WAIT_QUEUE = 40
+TIMEOUT_FOR_WAIT_QUEUE = 100

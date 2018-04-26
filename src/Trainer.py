@@ -67,7 +67,14 @@ class Trainer:
 
 		startGetBatchTime = time.time()
 
-		self._dataManager.AssignBatchData(self._batchData)
+		try:
+			self._dataManager.AssignBatchData(self._batchData)
+		except TimeoutError as error:
+			print()
+			print("Training terminate at epoch:", self._dataManager.epoch, ", steps:", self._dataManager.step)
+			print("\t Queue info = " + self._dataManager.GetQueueInfo())
+			print()
+			raise error
 
 		endGetBatchTime = time.time()
 		self._listOfGetBatchTime.append(endGetBatchTime - startGetBatchTime)

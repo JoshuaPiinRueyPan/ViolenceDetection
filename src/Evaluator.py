@@ -11,6 +11,7 @@ class Evaluator:
 		self._dataManager = EvaluationDataManager(PATH_TO_DATA_CATELOG_)
 		self._classifier = classifier_
 		self._lossOp = classifier_.crossEntropyLossOp
+		self._correctPredictionsOp = classifier_.correctPredictionsOp
 		self._predictionsOp = classifier_.predictionsOp
 		self._accuracyCalculator = VideosAccuracyCalculator()
 
@@ -36,12 +37,19 @@ class Evaluator:
 		self._listOfPreviousCellState = None
 
 		totalLosses = 0.0
-		countOfLosses = 0
+		totalCorrectPredictions = 0.0
+		countOfData = 0
 		while True:
-			currentLoss = self._calculateValidationForSingleBatch(tf_session_)
+			currentLoss, correctPredictions = self._calculateValidationForSingleBatch(tf_session_)
 
-			countOfLosses += currentLoss.size
+			if currentLoss.size != correctPredictions.size:
+				errorMessage = " batchLoss.shape = " + str(currentLoss.shape) + "\n"
+				errorMessage += " Not equal to correctPredictions.shape = " + str(correctPredictions.shape)
+				raise ValueError(errorMessage)
+
+			countOfData += currentLoss.size
 			totalLosses += np.sum(currentLoss)
+			totalCorrectPredictions += np.sum(correctPredictions)
 
 			if self._dataManager.isNewVideo:
 				self._listOfPreviousCellState = None
@@ -52,24 +60,26 @@ class Evaluator:
 
 
 		self._dataManager.Pause()
-		meanLoss = totalLosses / countOfLosses
+		meanLoss = totalLosses / countOfData
+		frameAccuracy = totalCorrectPredictions / countOfData
 
 		if threshold_ == None:
-			threshold, accuracy = self._accuracyCalculator.CalculateBestAccuracyAndThreshold(self._summaryWriter,
+			threshold, videoAccuracy = self._accuracyCalculator.CalculateBestAccuracyAndThreshold(self._summaryWriter,
 													 currentEpoch_)
 		else:
-			accuracy, _, _ = self._accuracyCalculator.CalculateAccuracyAtGivenThreshold(threshold_)
+			videoAccuracy, _, _ = self._accuracyCalculator.CalculateAccuracyAtGivenThreshold(threshold_)
 			threshold = threshold_
 
 		self._accuracyCalculator.Reset()
 
 		summary = tf.Summary()
-		summary.value.add(tag='loss', simple_value=meanLoss)
-		summary.value.add(tag='accuracy', simple_value=accuracy)
+		summary.value.add(tag='Loss', simple_value=meanLoss)
+		summary.value.add(tag='FrameAccuracy', simple_value=frameAccuracy)
+		summary.value.add(tag='VideoAccuracy', simple_value=videoAccuracy)
 		self._summaryWriter.add_summary(summary, currentEpoch_)
 
 
-		return meanLoss, threshold, accuracy
+		return meanLoss, frameAccuracy, threshold, videoAccuracy
 
 	def Release(self):
 		self._dataManager.Stop()
@@ -89,14 +99,16 @@ class Evaluator:
 
 		inputFeedDict.update(cellStateFeedDict)
 
-		tupleOfOutputs = session.run( [self._lossOp, self._predictionsOp] + self._classifier.net.GetListOfStatesTensorInLSTMs(),
+		tupleOfOutputs = session.run( [	self._lossOp, self._correctPredictionsOp, self._predictionsOp]	\
+						+ self._classifier.net.GetListOfStatesTensorInLSTMs(),
 			     		      feed_dict = inputFeedDict )
 		listOfOutputs = list(tupleOfOutputs)
 		batchLoss = listOfOutputs.pop(0)
+		correctPredictions = listOfOutputs.pop(0)
 		predictions = listOfOutputs.pop(0)
 		self._listOfPreviousCellState = listOfOutputs
 
 		self._accuracyCalculator.AppendNetPredictions(predictions, batchData.batchOfLabels)
 
-		return batchLoss
+		return batchLoss, correctPredictions
 

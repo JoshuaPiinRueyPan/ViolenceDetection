@@ -107,6 +107,26 @@ def _augmentedBySelectedMethods():
 						# horizontally flip 50% of all images
 						lib.Fliplr(0.5),
 
+						# crop images by -5% to 10% of their height/width
+#						sometimes( lib.CropAndPad(
+#									  percent=(-0.05, 0.1),
+#						)),
+#						sometimes( lib.Affine(
+#									# scale images to 90-110% of their size, individually per axis
+#									scale={"x": (0.9, 1.1), "y": (0.9, 1.1)},
+#
+#									# translate by -10 to +10 percent (per axis)
+#									translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)},
+#
+#									# rotate by -5 to +5 degrees
+#									rotate=(-5, 5),
+#
+#									# shear by -16 to +16 degrees
+#									shear=(-16, 16),
+#
+#									# use nearest neighbour or bilinear interpolation (fast)
+#									order=[0, 1], 
+#						)),
 						# execute 0 to 5 of the following (less important) augmenters per image
 						# don't execute all of them, as that would often be way too strong
 						lib.SomeOf( (0, 5),
@@ -156,18 +176,6 @@ def _augmentedBySelectedMethods():
 	return augmentMethod
 
 
-def _augTest():
-	sometimes = lambda aug: lib.Sometimes(0.5, aug)
-	augmentMethod = lib.Sequential([
-						lib.FrequencyNoiseAlpha(
-							exponent=(-4, 0),
-							first=lib.Multiply((0.5, 1.5), per_channel=True),
-							second=lib.ContrastNormalization((0.5, 2.0))
-						)
-					],
-					random_order=True
-				      )
-	return augmentMethod
 
 '''
     The 3-party data augmentation seems has data race issue.
@@ -184,8 +192,6 @@ def Augment(batchOfImagesInUINT8_):
 	'''
 	startAugTime = time.time()
 	augmentMethod = _augmentedBySelectedMethods()
-	#augmentMethod = _augmentedByAllMethods()
-	#augmentMethod = _augTest()
 	'''
 	    The following Augmenter will augment images in the same way.
 	'''

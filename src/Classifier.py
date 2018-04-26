@@ -32,6 +32,11 @@ class Classifier:
 											labels=self.groundTruth,
 											dim=-1,
 											name="tf.nn.softmax_cross_entropy_with_logits")
+		with tf.name_scope("FrameAccuracy"):
+			self._correctPredictions = tf.equal(	tf.argmax(self._predictions, axis=-1),
+								tf.argmax(self.groundTruth, axis=-1),
+								name="tf.equal")
+			self._correctPredictions = tf.cast(self._correctPredictions, tf.float32)
 
 	@property
 	def predictionsOp(self):
@@ -40,6 +45,10 @@ class Classifier:
 	@property
 	def crossEntropyLossOp(self):
 		return self._crossEntropyOp
+
+	@property
+	def correctPredictionsOp(self):
+		return self._correctPredictions
 
 	@property
 	def updateOp(self):
