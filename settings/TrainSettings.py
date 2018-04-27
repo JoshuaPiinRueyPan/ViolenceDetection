@@ -14,10 +14,10 @@ import settings.DataSettings as dataSettings
       The output of the total network will be the shape:
     [BATCH_SIZE, UNROLLED_SIZE, NUMBER_OF_CATEGORIES]
 '''
-#BATCH_SIZE = 4
-#UNROLLED_SIZE = 40
-BATCH_SIZE = 40
-UNROLLED_SIZE = 1
+BATCH_SIZE = 4
+UNROLLED_SIZE = 40
+#BATCH_SIZE = 40
+#UNROLLED_SIZE = 1
 
 PRETRAIN_MODEL_PATH_NAME = ""
 #PRETRAIN_MODEL_PATH_NAME = "temp/progress_unrolls/G2D19_1Fc_1LSTM_u8_flip_stair/save_epoch_3/ViolenceNet.ckpt"
@@ -31,7 +31,7 @@ NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 MAX_TRAINING_EPOCH = 30
 
 EPOCHS_TO_START_SAVE_MODEL = 10
-PATH_TO_SAVE_MODEL = "temp/D19_3Fc_dataAug_expLR"
+PATH_TO_SAVE_MODEL = "temp/G2D19_P2OF_ResHB_passthrough_1LSTM_dataAug_expLR"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
 PERFORM_DATA_AUGMENTATION = True
 
@@ -99,10 +99,10 @@ def GetLearningRate(currentEpoch_, currentStep_):
 	LOADED_QUEUE_MAX_SIZE = 80
 	NUMBER_OF_LOAD_DATA_THREADS=4
 
-    if (40, 1, False), Recommend values:
+    if (40, 1, True), Recommend values:
 	WAITING_QUEUE_MAX_SIZE = 180
 	LOADED_QUEUE_MAX_SIZE = 80
-	NUMBER_OF_LOAD_DATA_THREADS=2
+	NUMBER_OF_LOAD_DATA_THREADS=4
 
      Note: The "Averaged GetBatch Time" that printed while you train an epoch, should be
 	   smaller than 0.001(s). Otherwise, increase NUMBER_OF_LOAD_DATA_THREADS.
