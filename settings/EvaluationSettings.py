@@ -18,4 +18,4 @@ NUMBER_OF_LOAD_DATA_THREADS=1
 #  Settings for Evaluate.py  #
 ##############################
 
-PATH_TO_MODEL_CHECKPOINTS = "data/bestResult/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR/ViolenceNet.ckpt"
+PATH_TO_MODEL_CHECKPOINTS = "temp/G2D19_OF_CNN_Series/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR/save_epoch_29/ViolenceNet.ckpt"

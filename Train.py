@@ -126,7 +126,7 @@ class Main:
 
 	def calculateValidationBeforeTraining(self):
 		if trainSettings.PRETRAIN_MODEL_PATH_NAME != "":
-			print("Validation before Training ", "======================================"
+			print("Validation before Training ", "============================="
 					+ "======================================"
 					+ "======================================")
 			self.evaluateValidationSetAndPrint(currentEpoch_=0)

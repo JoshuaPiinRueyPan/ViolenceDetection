@@ -14,17 +14,18 @@ def PrintHelp():
 def PrintResults(loss_, frameAccuracy_, isThresholdOptimized_, threshold_, videoAccuracy_, duration_):
 	floatPrecision = "{0:.4f}"
 	if isThresholdOptimized_:
-		print("\t\t loss: ", floatPrecision.format(loss_),
-			",\t frameAccuracy: ", floatPrecision.format(frameAccuracy),
-			",\t best frame threshold: ", threshold_,
-			",\t videoAccuracy: ", floatPrecision.format(videoAccuracy_),
-			",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
+			print("\t     loss:", floatPrecision.format(loss_),
+				"     frame accuracy:", floatPrecision.format(frameAccuracy_),
+				"     best frame threshold:", threshold_,
+				"     video accuracy:", floatPrecision.format(videoAccuracy_),
+				"     duration:", "{0:.2f}".format(duration_) + "(s)\n" )
 	else:
-		print("\t\t loss: ", floatPrecision.format(loss_),
-			",\t frameAccuracy: ", floatPrecision.format(frameAccuracy),
-			",\t given frame threshold: ", threshold_,
-			",\t videoAccuracy: ", floatPrecision.format(videoAccuracy_),
-			",\t duration: ", "{0:.4f}".format(duration_), "(s)\n" )
+			print("\t     loss:", floatPrecision.format(loss_),
+				"     frame accuracy:", floatPrecision.format(frameAccuracy_),
+				"     given frame threshold:", threshold_,
+				"     video accuracy:", floatPrecision.format(videoAccuracy_),
+				"     duration:", "{0:.2f}".format(duration_) + "(s)\n" )
+
 
 if __name__ == '__main__':
 	numberOfArguments = len(sys.argv)
