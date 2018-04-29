@@ -31,7 +31,7 @@ NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 MAX_TRAINING_EPOCH = 30
 
 EPOCHS_TO_START_SAVE_MODEL = 1
-PATH_TO_SAVE_MODEL = "temp/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR_finetune-expLR"
+PATH_TO_SAVE_MODEL = "temp/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR_finetune-stairLR"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
 PERFORM_DATA_AUGMENTATION = True
 
@@ -45,7 +45,8 @@ def GetOptimizer(learningRate_):
 	3. _polynomialDecayLearningRate()
 '''
 def _stairLearningRate(currentEpoch_, currentStep_):
-	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
+	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-4), (5, 1e-5) ]
+	LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 1e-6), (15, 5e-7), (25, 1e-7) ]
 	#LIST_OF_EPOCH_LEARNING_RATE_PAIRS = [ (0, 3e-6), (5, 2.5e-6), (10, 2e-6), (15, 1.5e-6), (20, 1e-6) ]
 
 	for eachPair in reversed(LIST_OF_EPOCH_LEARNING_RATE_PAIRS):
@@ -95,8 +96,8 @@ def _polynomialDecayLearningRate(currentEpoch_, currentStep_):
 
 
 def GetLearningRate(currentEpoch_, currentStep_):
-#	return _stairLearningRate(currentEpoch_, currentStep_)
-	return _exponentialDecayLearningRate(currentEpoch_, currentStep_=currentStep_)
+	return _stairLearningRate(currentEpoch_, currentStep_)
+#	return _exponentialDecayLearningRate(currentEpoch_, currentStep_=currentStep_)
 
 
 

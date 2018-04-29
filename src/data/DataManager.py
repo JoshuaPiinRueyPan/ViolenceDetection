@@ -20,7 +20,7 @@ else:
 '''
 PRODUCE_CONSUME_RATIO = 15
 
-IS_DEBUG_MODE = True
+IS_DEBUG_MODE = False
 
 class BatchData:
 	def __init__(self):
