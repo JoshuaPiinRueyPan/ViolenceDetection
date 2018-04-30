@@ -19,8 +19,8 @@ UNROLLED_SIZE = 40
 #BATCH_SIZE = 40
 #UNROLLED_SIZE = 1
 
-#PRETRAIN_MODEL_PATH_NAME = ""
-PRETRAIN_MODEL_PATH_NAME = "temp/G2D19_OF_CNN_Series/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR/save_epoch_30/ViolenceNet.ckpt"
+PRETRAIN_MODEL_PATH_NAME = ""
+#PRETRAIN_MODEL_PATH_NAME = "temp/G2D19_OF_CNN_Series/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR/save_epoch_30/ViolenceNet.ckpt"
 
 '''
     If one want to finetune, insert the LastLayer to the following list.
@@ -31,7 +31,7 @@ NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 MAX_TRAINING_EPOCH = 30
 
 EPOCHS_TO_START_SAVE_MODEL = 1
-PATH_TO_SAVE_MODEL = "temp/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR_finetune-stairLR"
+PATH_TO_SAVE_MODEL = "temp/G2D19_P2OF_ResHB_1LSTM_NoDataAug_expLR_finetune-expLR"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
 PERFORM_DATA_AUGMENTATION = True
 
@@ -62,21 +62,20 @@ def _exponentialDecayLearningRate(currentEpoch_, currentStep_):
 	    Exponential Decay:
 		learningRate = INITIAL_LEARNING_RATE * DECAY_RATE ^ (currentStep_ / DECAY_STEP) + END_LEARNING_RATE
 	'''
-#	INITIAL_LEARNING_RATE = 1e-5
-#	DECAY_RATE = 0.9
-#
-#	NUMBER_OF_BATCHES_PER_EPOCH = 250
-#	NUMBER_OF_EPOCHS_PER_DECAY = 1
-#	DECAY_STEP = int(NUMBER_OF_BATCHES_PER_EPOCH * NUMBER_OF_EPOCHS_PER_DECAY)
-#	END_LEARNING_RATE = 0.0
-
-	INITIAL_LEARNING_RATE = 2e-6
+	INITIAL_LEARNING_RATE = 1e-5
 	DECAY_RATE = 0.9
-
-	NUMBER_OF_BATCHES_PER_EPOCH = 500
+	NUMBER_OF_BATCHES_PER_EPOCH = 250
 	NUMBER_OF_EPOCHS_PER_DECAY = 1
 	DECAY_STEP = int(NUMBER_OF_BATCHES_PER_EPOCH * NUMBER_OF_EPOCHS_PER_DECAY)
-	END_LEARNING_RATE = 1e-7
+	END_LEARNING_RATE = 0.0
+
+#	# Finetune
+#	INITIAL_LEARNING_RATE = 2e-6
+#	DECAY_RATE = 0.9
+#	NUMBER_OF_BATCHES_PER_EPOCH = 500
+#	NUMBER_OF_EPOCHS_PER_DECAY = 1
+#	DECAY_STEP = int(NUMBER_OF_BATCHES_PER_EPOCH * NUMBER_OF_EPOCHS_PER_DECAY)
+#	END_LEARNING_RATE = 1e-7
 
 	learningRate = INITIAL_LEARNING_RATE * DECAY_RATE ** (currentStep_ / DECAY_STEP) + END_LEARNING_RATE
 
@@ -96,8 +95,8 @@ def _polynomialDecayLearningRate(currentEpoch_, currentStep_):
 
 
 def GetLearningRate(currentEpoch_, currentStep_):
-	return _stairLearningRate(currentEpoch_, currentStep_)
-#	return _exponentialDecayLearningRate(currentEpoch_, currentStep_=currentStep_)
+#	return _stairLearningRate(currentEpoch_, currentStep_)
+	return _exponentialDecayLearningRate(currentEpoch_, currentStep_=currentStep_)
 
 
 
