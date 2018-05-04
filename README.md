@@ -75,14 +75,14 @@ After you have trained a model, you can input a video and see its performance by
 
    * src/: Functions and Classes that used by the executables can be found here.
 
-   ** src/data: Libraries that deal with data.
+       * src/data: Libraries that deal with data.
 
-   ** src/layers: Convinient functions or wrappers for tensorflow.
-                  Note: The settings of layers (such as weight decay, layer initailization variables) can be found in
-                        settings/LayerSettings.py.
+       * src/layers: Convinient functions or wrappers for tensorflow.
+                     Note: The settings of layers (such as weight decay, layer initailization variables) can be found in
+                           settings/LayerSettings.py.
 
-   ** src/net: The network blueprints can be found here.  You can find examples and design your own networks here.
-               Note: Remember to change the new-developed network by editting the settings/NetSettings.py.
+       * src/net: The network blueprints can be found here.  You can find examples and design your own networks here.
+                  Note: Remember to change the new-developed network by editting the settings/NetSettings.py.
 
-   ** src/third_party: Third-party libraries are placed here.  Currently, this folder only contains the data augmentation
-                       library: [imgaug](https://github.com/aleju/imgaug).
+       * src/third_party: Third-party libraries are placed here.  Currently, this folder only contains the data augmentation
+                          library: [imgaug](https://github.com/aleju/imgaug).
