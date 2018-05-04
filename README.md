@@ -16,7 +16,7 @@ TensorFlow 1.7.0
 ## Quick Start
 ### Training
 1. Download the fight/non-fight dataset from [here](http://visilab.etsii.uclm.es/personas/oscar/FightDetection/index.html)
-   or, other fight/non-fight datasets is also supported if and only if you separate the fight and non-fight videos
+   or, other fight/non-fight datasets is also supported as long as you separate the fight and non-fight videos
    in the different directories.
 
 2. To make the data catelogs that will tell the data manager where to load the videos, edit the file:
@@ -43,7 +43,7 @@ TensorFlow 1.7.0
 ```Shell
 	python3 Train.py
 ```
-or, if you set the Train.py to be executable, just type:
+   or, if you set the Train.py to be executable, just type:
 ```Shell
 	./Train.py
 ```
@@ -55,3 +55,27 @@ After you have trained a model, you can input a video and see its performance by
 ```Shell
 	PATH_TO_MODEL_CHECKPOINTS = "PathToMyBestModelCheckpoint"
 ```
+
+## Architecture and Design Philosophy
+1. This project has the following architecture:
+
+   * Train.py: An executable that can train the violence detection models.
+
+   * Deploy.py: An executable that can display a video and show if it has violence event per frame.
+
+   * Evaluate.py: An executable that can calculate the accuracies with respect to the given dataset catelog and the
+                  model checkpoints.
+
+   * settings/:   A folder that contains various settings in this projects.  Most of the commonly changed variables can
+                be found here.  If prefer this design philosophy because the user can easily change several variables
+                without get into the source code.  Moreover, to isolate the customized variables here, this folder can
+                be set as ignored by git if there're multiple developers to avoid the conflicts.  Although one can also
+                use the tf.app.flags to avoid the conflicts between the developers, I think it's kind of pain to enter
+                so much arguments in the command line.
+   * src/: Functions and Classes that used by the executables can be found here.
+   ** src/data: Libraries that deal with data.
+   ** src/layers: Convinient functions or wrappers for tensorflow.
+   ** src/net: The network blueprints can be found here.  You can find examples and design your own networks here.
+               Note: Remember to change the new-developed network by editting the settings/NetSettings.py.
+   ** src/third_party: Third-party libraries are placed here.  Currently, this folder only contains the data augmentation
+                       library: [imgaug](https://github.com/aleju/imgaug).
