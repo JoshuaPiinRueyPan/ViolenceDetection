@@ -46,9 +46,9 @@ TensorFlow 1.7.0
 	PATH_TO_SAVE_MODEL = "MyPathToSaveTrainingResultsAndModels"
 ```
 5. By default, it will use the G2D19_P2OF_ResHB_1LSTM as its default network.  This network is base on the pre-trained Darknet19.
-   The checkpoint of such model is converted from the (Darknet)[https://pjreddie.com/darknet/imagenet/] format to the TensorFlow
-   pb format by the use of (Darkflow)[https://github.com/thtrieu/darkflow].  You can convert the checkpoint by yourself, or download
-   from (here)[https://drive.google.com/open?id=1oUPhXtZjTU04DOwAXv6LtQ1GxFG9TD7b].
+   The checkpoint of such model is converted from the [Darknet](https://pjreddie.com/darknet/imagenet/) format to the TensorFlow
+   pb format by the use of [Darkflow](https://github.com/thtrieu/darkflow).  You can convert the checkpoint by yourself, or download
+   from [here](https://drive.google.com/open?id=1oUPhXtZjTU04DOwAXv6LtQ1GxFG9TD7b).
      Then, move the file to 'data/pretrainModels/darknet19/', or edit the variable DARKNET19_MODEL_PATH in
    [src/net/G2D19_P2OF_ResHB_1LSTM.py](src/net/G2D19_P2OF_ResHB_1LSTM.py) to the path that you put the checkpoint.
 
@@ -60,9 +60,7 @@ TensorFlow 1.7.0
 ```Shell
 	python3 Train.py
 ```
-
-   or, if you set the Train.py to be executable, just type:
-
+	or, if you set the Train.py to be executable, just type:
 ```Shell
 	./Train.py
 ```
