@@ -17,10 +17,10 @@ import settings.DataSettings as dataSettings
 BATCH_SIZE = 4
 UNROLLED_SIZE = 40
 #BATCH_SIZE = 40
-#UNROLLED_SIZE = 1
+#UNROLLED_SIZE = 2
 
 PRETRAIN_MODEL_PATH_NAME = ""
-#PRETRAIN_MODEL_PATH_NAME = "temp/G2D19_OF_CNN_Series/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR/save_epoch_30/ViolenceNet.ckpt"
+#PRETRAIN_MODEL_PATH_NAME = "temp/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR/save_epoch_14/ViolenceNet.ckpt"
 
 '''
     If one want to finetune, insert the LastLayer to the following list.
@@ -30,8 +30,8 @@ NAME_SCOPES_NOT_TO_RECOVER_FROM_CHECKPOINT = []
 
 MAX_TRAINING_EPOCH = 30
 
-EPOCHS_TO_START_SAVE_MODEL = 5
-PATH_TO_SAVE_MODEL = "temp/G2D19_ResHB_1LSTM_dataAug_expLR"
+EPOCHS_TO_START_SAVE_MODEL = 1
+PATH_TO_SAVE_MODEL = "temp/G2D19_P2OF_ResHB_1LSTM_dataAug_expLR"
 MAX_TRAINING_SAVE_MODEL = MAX_TRAINING_EPOCH
 PERFORM_DATA_AUGMENTATION = True
 
@@ -68,14 +68,6 @@ def _exponentialDecayLearningRate(currentEpoch_, currentStep_):
 	NUMBER_OF_EPOCHS_PER_DECAY = 1
 	DECAY_STEP = int(NUMBER_OF_BATCHES_PER_EPOCH * NUMBER_OF_EPOCHS_PER_DECAY)
 	END_LEARNING_RATE = 0.0
-
-#	# Finetune
-#	INITIAL_LEARNING_RATE = 2e-6
-#	DECAY_RATE = 0.9
-#	NUMBER_OF_BATCHES_PER_EPOCH = 500
-#	NUMBER_OF_EPOCHS_PER_DECAY = 1
-#	DECAY_STEP = int(NUMBER_OF_BATCHES_PER_EPOCH * NUMBER_OF_EPOCHS_PER_DECAY)
-#	END_LEARNING_RATE = 1e-7
 
 	learningRate = INITIAL_LEARNING_RATE * DECAY_RATE ** (currentStep_ / DECAY_STEP) + END_LEARNING_RATE
 
@@ -128,8 +120,8 @@ def GetLearningRate(currentEpoch_, currentStep_):
      Note: The "Averaged GetBatch Time" that printed while you train an epoch, should be
 	   smaller than 0.001(s). Otherwise, increase NUMBER_OF_LOAD_DATA_THREADS.
 '''
-WAITING_QUEUE_MAX_SIZE = 100
-LOADED_QUEUE_MAX_SIZE = 40
+WAITING_QUEUE_MAX_SIZE = 180
+LOADED_QUEUE_MAX_SIZE = 80
 NUMBER_OF_LOAD_DATA_THREADS=4
 
 MAX_GRADIENT_VALUE = 5.0
