@@ -73,6 +73,14 @@ After you have trained a model, you can input a video and see its performance by
 ```Shell
 	PATH_TO_MODEL_CHECKPOINTS = "PathToMyBestModelCheckpoint"
 ```
+2. Execute the Violence Detector by the following command:
+```Shell
+	./Deploy.py  $(Path file name of the video to be tested)
+```
+	or by the following command if you want to save the result:
+```Shell
+	./Deploy.py  $(Path file name of the video to be tested)  $(Path file name of the resulting video)
+```
 
 ## Architecture and Design Philosophy
 1. This project has the following architecture:
