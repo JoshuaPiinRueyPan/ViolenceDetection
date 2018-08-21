@@ -93,7 +93,7 @@ After you have trained a model, you can input a video and see its performance by
                   model checkpoints.
 
    * settings/:   A folder that contains various settings in this projects.  Most of the commonly changed variables can
-                be found here.  If prefer this design philosophy because the user can easily change several variables
+                be found here.  I prefer this design philosophy because the user can easily change several variables
                 without get into the source code.  Moreover, to isolate the customized variables here, this folder can
                 be set as ignored by git if there're multiple developers to avoid the conflicts.  Although one can also
                 use the tf.app.flags to avoid the conflicts between the developers, I think it's kind of pain to enter
